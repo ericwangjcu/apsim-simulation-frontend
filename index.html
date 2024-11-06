@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APSIM Simulation Output</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fc;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1600px;
+        }
+
+        h2 {
+            color: #0056b3;
+            font-size: 24px;
+            margin-bottom: 20px;
+            grid-column: span 2;
+            text-align: center;
+        }
+
+        /* Configuration Form Styling */
+        .config-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            font-weight: bold;
+            color: #444;
+        }
+
+        input, select, button {
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #004080;
+        }
+
+        /* Results Section Styling */
+        .results-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .table-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+            max-height: 250px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #e9ecef;
+            color: #0056b3;
+            font-weight: bold;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .pagination button {
+            padding: 5px 10px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pagination button.disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+
+        .chart-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .spinner {
+            display: none; /* Hide by default */
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Overlay to darken the background when loading */
+        .overlay {
+            display: none; /* Hide by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+            <!-- Loading Spinner and Overlay -->
+    <div class="overlay" id="overlay"></div>
+    <div class="spinner" id="spinner"></div>
+        <h2>APSIM Simulation Output</h2>
+
+        <!-- Configuration Panel on the Left -->
+        <div class="config-panel">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" value="1994-01-01">
+
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate" value="1995-01-01">
+
+            <label for="soilType">Soil Type:</label>
+            <select id="soilType" name="soilType">
+                <option value="SandyLoam">Sandy Loam</option>
+                <option value="ClayLoam">Clay Loam</option>
+                <option value="SiltLoam">Silt Loam</option>
+            </select>
+
+            <label for="soilDepth">Soil Depth (cm):</label>
+            <input type="number" id="soilDepth" name="soilDepth" value="30">
+
+            <label for="plantStalks">Plant Stalks (/m²):</label>
+            <input type="number" id="plantStalks" name="plantStalks" value="10">
+
+            <label for="sowingDepth">Sowing Depth (mm):</label>
+            <input type="number" id="sowingDepth" name="sowingDepth" value="150">
+
+            <label for="variety">Variety:</label>
+            <input type="text" id="variety" name="variety" value="q117">
+
+            <label for="noRatoons">Number of Ratoons:</label>
+            <input type="number" id="noRatoons" name="noRatoons" value="4">
+
+            <label for="irrigationFrequency">Irrigation Frequency (days):</label>
+            <input type="number" id="irrigationFrequency" name="irrigationFrequency" value="7">
+
+            <label for="irrigationAmount">Irrigation Amount (mm):</label>
+            <input type="number" id="irrigationAmount" name="irrigationAmount" value="60">
+            <!-- New Configuration Fields for Cost Calculations -->
+            <label for="fieldSize">Field Size (hectares):</label>
+            <input type="number" id="fieldSize" value="4" step="0.1">
+
+            <label for="pumpFlowRate">Pump Flow Rate (L/s):</label>
+            <input type="number" id="pumpFlowRate" value="60">
+
+            <label for="pumpWattage">Pump Wattage (W):</label>
+            <input type="number" id="pumpWattage" value="10000">
+
+            <label for="energyPrice">Energy Price ($/kWh):</label>
+            <input type="number" id="energyPrice" value="0.3" step="0.01">
+
+            <label for="waterPrice">Water Price ($/ML):</label>
+            <input type="number" id="waterPrice" value="20.35" step="0.01">
+
+            <button onclick="fetchSimulationData()">Run Simulation</button>
+        </div>
+
+        <!-- Results Panel on the Right -->
+        <div class="results-panel">
+            <!-- Table Name -->
+            <h3>Simulation Results</h3>
+
+            <!-- Table Container -->
+            <div class="table-container">
+                <table id="outputTable">
+                    <thead>
+                        <tr id="tableHeader"></tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+
+            <div class="pagination">
+                <button id="prevPage" onclick="changePage(-1)" class="disabled">Previous</button>
+                <span id="pageInfo"></span>
+                <button id="nextPage" onclick="changePage(1)" class="disabled">Next</button>
+            </div>
+
+            <!-- Chart Container -->
+            <div id="chartContainer" class="chart-container"></div>
+        </div>
+
+        <!-- Calculation Results Container -->
+        <div class="results-container">
+            <h3>Water and Energy Cost Analysis</h3>
+            <table>
+                <tr>
+                    <td>Water Volume (ML):</td>
+                    <td id="waterVolume">--</td>
+                </tr>
+                <tr>
+                    <td>Irrigation Duration (hours):</td>
+                    <td id="irrigationDuration">--</td>
+                </tr>
+                <tr>
+                    <td>Energy Cost ($):</td>
+                    <td id="energyCost">--</td>
+                </tr>
+                <tr>
+                    <td>Water Cost ($):</td>
+                    <td id="waterCost">--</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Load Highcharts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script>
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let tableData = [];
+        // Function to show the loading animation
+        function showLoading() {
+            document.getElementById("spinner").style.display = "block";
+            document.getElementById("overlay").style.display = "block";
+        }
+
+        // Function to hide the loading animation
+        function hideLoading() {
+            document.getElementById("spinner").style.display = "none";
+            document.getElementById("overlay").style.display = "none";
+        }
+        async function fetchSimulationData() {
+
+            showLoading(); // Show spinner when fetching starts
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            const soilType = document.getElementById("soilType").value;
+            const soilDepth = document.getElementById("soilDepth").value;
+            const plantStalks = document.getElementById("plantStalks").value;
+            const sowingDepth = document.getElementById("sowingDepth").value;
+            const variety = document.getElementById("variety").value;
+            const noRatoons = document.getElementById("noRatoons").value;
+            const irrigationFrequency = document.getElementById("irrigationFrequency").value;
+            const irrigationAmount = document.getElementById("irrigationAmount").value;
+
+            try {
+                const response = await fetch("http://3.106.235.129:5000/run_simulation", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        startDate, endDate, soilType, soilDepth,
+                        plantStalks, sowingDepth, variety, noRatoons,
+                        irrigationFrequency, irrigationAmount 
+                    })
+                });
+                const data = await response.json();
+
+                if (data.output && data.output.length > 0) {
+                    tableData = data.output;
+                    displayTablePage();
+                    createCharts();
+                    calculateWaterAndEnergyCosts();
+                } else {
+                    alert("No data received from the API.");
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                alert("Failed to fetch data.");
+            } finally {
+                hideLoading(); // Hide spinner after data is loaded or on error
+            }
+        }
+        function calculateWaterAndEnergyCosts() {
+            // Get input values
+            const fieldSize = parseFloat(document.getElementById("fieldSize").value); // in hectares
+            const irrigationAmount = parseFloat(document.getElementById("irrigationAmount").value); // in mm of water
+            const pumpFlowRate = parseFloat(document.getElementById("pumpFlowRate").value); // L/s
+            const pumpWattage = parseFloat(document.getElementById("pumpWattage").value); // W
+            const irrigationFrequency = parseInt(document.getElementById("irrigationFrequency").value); // in days
+
+            // Date range for the irrigation period
+            const startDate = new Date(document.getElementById("startDate").value);
+            const endDate = new Date(document.getElementById("endDate").value);
+
+            const waterprice = parseFloat(document.getElementById("waterPrice").value); // in days
+            const energyprice = parseFloat(document.getElementById("energyPrice").value); // in days
+
+            // Calculate the number of irrigation cycles within the period
+            const oneDay = 24 * 60 * 60 * 1000; // Milliseconds in a day
+            const totalDays = Math.round((endDate - startDate) / oneDay); // Total days in the period
+            const irrigationCycles = Math.floor(totalDays / irrigationFrequency); // Total irrigation cycles
+
+            // Calculate water volume per cycle
+            const volumeWater = fieldSize * irrigationAmount * 10000; // Volume in liters per cycle
+            const totalVolumeWater = volumeWater * irrigationCycles; // Total volume of water over all cycles (in liters)
+            const totalVolumeWaterML = totalVolumeWater / 1000000; // Convert total volume to kiloliters
+
+
+            // Water Cost Calculation with Access and Tiered Charges
+            let waterCost = totalVolumeWaterML * waterprice;
+
+            // Calculate irrigation duration and energy usage per cycle
+            const durationInSeconds = volumeWater / pumpFlowRate; // Total time in seconds per cycle
+            const durationInHours = durationInSeconds / 3600; // Total time in hours per cycle
+
+            const EnergyUsed = (pumpWattage / 1000) * durationInHours * irrigationCycles; // Peak energy in kWh
+            
+            // Calculate energy cost based on tariff rates
+            const energyCost = EnergyUsed * energyprice; // Daily supply charge
+ 
+            // Display results
+            document.getElementById("waterVolume").textContent = totalVolumeWaterML.toFixed(2) + " ML";
+            document.getElementById("irrigationDuration").textContent = (durationInHours * irrigationCycles).toFixed(2) + " hours";
+            document.getElementById("energyCost").textContent = "$" + energyCost.toFixed(2);
+            document.getElementById("waterCost").textContent = "$" + waterCost.toFixed(2);
+        }
+
+
+
+
+        function updatePaginationControls() {
+            const totalPages = Math.ceil(tableData.length / rowsPerPage);
+            document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages}`;
+            
+            document.getElementById("prevPage").classList.toggle("disabled", currentPage === 1);
+            document.getElementById("nextPage").classList.toggle("disabled", currentPage === totalPages);
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(tableData.length / rowsPerPage);
+            currentPage = Math.min(Math.max(1, currentPage + delta), totalPages);
+            displayTablePage();
+        }
+        function getLastWord(str) {
+            const words = str.split('.');
+            return words[words.length - 1];
+        }
+        function displayTablePage() {
+            const tableHeader = document.getElementById("tableHeader");
+            const tableBody = document.getElementById("tableBody");
+
+            tableHeader.innerHTML = "";
+            tableBody.innerHTML = "";
+
+            if (tableData.length === 0) return;
+
+            // Select only columns 2, 4, 5, and 6 by index (0-based indexing)
+            const headers = Object.keys(tableData[0]);
+            const selectedHeaders = [headers[1], headers[2], headers[4], headers[5], headers[6]];
+
+            selectedHeaders.forEach(header => {
+                const th = document.createElement("th");
+                th.textContent = getLastWord(header);
+                tableHeader.appendChild(th);
+            });
+
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const pageData = tableData.slice(start, end);
+
+            pageData.forEach(row => {
+                const tr = document.createElement("tr");
+                selectedHeaders.forEach(header => {
+                    const td = document.createElement("td");
+                    td.textContent = row[header];
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+
+            updatePaginationControls();
+        }
+
+        function createCharts() {
+    const chartContainer = document.getElementById("chartContainer");
+    chartContainer.innerHTML = "";  // Clear previous charts
+
+    const headers = Object.keys(tableData[0]);
+    const selectedHeaders = [headers[2], headers[4], headers[5], headers[6]];
+
+    // Define units for each label
+    const units = {
+        "TotalWaterBalance": "mm",
+        "WaterDemand": "mm",
+        "Biomass": "kg/ha",
+        "Rain": "mm",
+        
+        // Add more labels and units as needed
+    };
+
+    selectedHeaders.forEach((label, index) => {
+        const data = tableData.map(row => row[label]);
+        const yAxisLabel = units[getLastWord(label)] || "";  // Default to empty if no unit found
+
+        const chartDiv = document.createElement("div");
+        chartDiv.id = `chart-${index}`;
+        chartDiv.style.height = "300px";
+        chartContainer.appendChild(chartDiv);
+
+        Highcharts.chart(chartDiv.id, {
+            title: { text: getLastWord(label) },
+            xAxis: { categories: tableData.map((_, idx) => idx + 1) },
+            yAxis: { title: { text: `${getLastWord(label)} (${yAxisLabel})` } },  // Set y-axis label with unit
+            series: [{
+                name: getLastWord(label),
+                data: data,
+                color: '#007bff'
+            }],
+            chart: { type: 'line' }
+        });
+    });
+}
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            initializeBlankTable();
+            initializeBlankChart();
+        });
+
+        function initializeBlankTable() {
+            const tableHeader = document.getElementById("tableHeader");
+            const tableBody = document.getElementById("tableBody");
+
+            // Clear existing content
+            tableHeader.innerHTML = "";
+            tableBody.innerHTML = "";
+
+            // Placeholder headers (for example purposes, use names that make sense for your data)
+            const headers = ["Date", "TotalWaterBalance", "Biomass", "Rain"];
+            headers.forEach(header => {
+                const th = document.createElement("th");
+                th.textContent = header;
+                tableHeader.appendChild(th);
+            });
+
+            // Placeholder row
+            const tr = document.createElement("tr");
+            headers.forEach(() => {
+                const td = document.createElement("td");
+                td.textContent = "--";
+                tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+        }
+
+        function initializeBlankChart() {
+            const chartContainer = document.getElementById("chartContainer");
+            chartContainer.innerHTML = "";  // Clear any previous content
+
+            // Create a canvas element for the placeholder chart
+            const canvas = document.createElement("canvas");
+            canvas.id = "placeholder-chart";
+            chartContainer.appendChild(canvas);
+
+            // Initialize a basic placeholder chart with Chart.js (or use Highcharts as needed)
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: ["--"],  // Placeholder labels
+                    datasets: [{
+                        label: "Placeholder Data",
+                        data: [0],  // Placeholder data point
+                        fill: false,
+                        borderColor: 'gray',
+                        borderDash: [5, 5],
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Placeholder Chart"
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: { display: true, text: 'X Axis' }
+                        },
+                        y: {
+                            display: true,
+                            title: { display: true, text: 'Y Axis' }
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
