@@ -2,7 +2,7 @@ name: APSIM Sugarcane Phase 1
 
 on:
   push:
-    branches: [clover-apsim-phase1]
+    branches: [main, clover-apsim-phase1]
   pull_request:
     branches: [main]
   workflow_dispatch:
