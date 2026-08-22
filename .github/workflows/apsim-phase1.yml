@@ -1,0 +1,75 @@
+name: APSIM Sugarcane Phase 1
+
+on:
+  push:
+    branches: [main, clover-apsim-phase1]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  run-sugarcane-example:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare official APSIM sugarcane example
+        run: |
+          mkdir -p phase1
+          curl -L --fail -o phase1/Sugarcane.apsimx \
+            https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase1/AU_Ingham.met \
+            https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/WeatherFiles/AU_Ingham.met
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('phase1/Sugarcane.apsimx')
+          data = json.loads(path.read_text())
+
+          def walk(node):
+              if isinstance(node, dict):
+                  if node.get('$type', '').startswith('Models.Climate.Weather'):
+                      node['FileName'] = '/test-run/AU_Ingham.met'
+                  for value in node.values():
+                      walk(value)
+              elif isinstance(node, list):
+                  for value in node:
+                      walk(value)
+
+          walk(data)
+          path.write_text(json.dumps(data, indent=2))
+          PY
+
+      - name: Run APSIM Next Generation sugarcane example
+        run: |
+          docker pull apsiminitiative/apsimng:latest
+          docker run --rm \
+            -v "$PWD/phase1:/test-run" \
+            apsiminitiative/apsimng:latest \
+            /test-run/Sugarcane.apsimx --csv --verbose
+
+      - name: Summarise outputs
+        run: |
+          echo "Generated files:"
+          find phase1 -maxdepth 1 -type f -printf '%f\n' | sort
+          echo
+          echo "CSV preview:"
+          for f in phase1/*.csv; do
+            echo "--- $f ---"
+            head -n 8 "$f" || true
+          done
+
+      - name: Upload APSIM phase 1 outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apsim-sugarcane-phase1
+          path: |
+            phase1/*.csv
+            phase1/*.db
+            phase1/Sugarcane.apsimx
+            phase1/AU_Ingham.met
+          if-no-files-found: error
