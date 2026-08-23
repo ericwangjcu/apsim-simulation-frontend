@@ -3,6 +3,8 @@ name: APSIM Phase 3 Walkamin consequence forecast
 on:
   push:
     branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
