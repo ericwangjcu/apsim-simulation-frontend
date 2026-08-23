@@ -1,0 +1,72 @@
+name: APSIM Phase 3 Walkamin forecast comparison
+
+on:
+  push:
+    branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  walkamin-forecast-comparison:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast and analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Prepare Walkamin 2008-09 baseline
+        run: |
+          mkdir -p phase3/walkamin
+          curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
+          python phase3/prepare_walkamin_screen.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run selected Walkamin baseline
+        run: docker run --rm -v "$PWD/phase3/walkamin:/test-run" apsiminitiative/apsimng:latest /test-run/Walkamin_2008_2009_baseline.apsimx --csv --verbose
+
+      - name: Retrieve historical GEFS forecasts near irrigation decisions
+        run: python phase3/fetch_walkamin_gefs.py
+
+      - name: Build forecast-aware and perfect-information scenarios
+        run: python phase3/build_walkamin_scenarios.py
+
+      - name: Run forecast-aware Walkamin simulation
+        run: docker run --rm -v "$PWD/phase3/walkamin:/test-run" apsiminitiative/apsimng:latest /test-run/Walkamin_2008_2009_forecast.apsimx --csv --verbose
+
+      - name: Run perfect-information Walkamin simulation
+        run: docker run --rm -v "$PWD/phase3/walkamin:/test-run" apsiminitiative/apsimng:latest /test-run/Walkamin_2008_2009_perfect.apsimx --csv --verbose
+
+      - name: Analyse Walkamin comparison
+        run: python phase3/analyse_walkamin_comparison.py
+
+      - name: Preview results
+        run: |
+          cat phase3/walkamin/walkamin_2008_strategy_summary.csv
+          echo
+          cat phase3/walkamin/walkamin_2008_forecast_decision_days.csv
+
+      - name: Upload Walkamin comparison outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-walkamin-forecast
+          path: |
+            phase3/walkamin/*.csv
+            phase3/walkamin/*.json
+            phase3/walkamin/*.apsimx
+            phase3/walkamin/*.met
+          if-no-files-found: error
