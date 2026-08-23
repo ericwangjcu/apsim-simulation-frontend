@@ -2,7 +2,9 @@ name: APSIM Phase 3 Walkamin forecast comparison
 
 on:
   push:
-    branches: [clover-phase3-walkamin]
+    branches: [clover-phase3-walkamin, clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
