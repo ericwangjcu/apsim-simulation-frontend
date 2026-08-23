@@ -19,7 +19,12 @@ for strategy, path in FILES.items():
     df = pd.read_csv(path)
     df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
     s = df[(df['Clock.Today'] >= START) & (df['Clock.Today'] <= END)].copy()
-    endrow = s.iloc[-1]
+
+    # The official Sugarcane example harvest/reset occurs on 7 Sep 2000, so
+    # the final row has zero crop mass. Use the last positive-biomass row as
+    # the crop endpoint to report the immediately pre-harvest state.
+    positive = s[s['Sugarcane.biomass'] > 0]
+    crop_endrow = positive.iloc[-1] if len(positive) else s.iloc[-1]
     events = s[s['AppliedToday'] > 0].copy()
     holds = int((s['HoldToday'] > 0).sum()) if 'HoldToday' in s.columns else 0
 
@@ -31,9 +36,10 @@ for strategy, path in FILES.items():
         'min_swdef_photo': float(s['Sugarcane.swdef_photo'].min()),
         'stress_days_swdef_lt_0_9': int((s['Sugarcane.swdef_photo'] < 0.9).sum()),
         'stress_days_swdef_lt_0_7': int((s['Sugarcane.swdef_photo'] < 0.7).sum()),
-        'end_biomass': float(endrow['Sugarcane.biomass']),
-        'end_cane_wt': float(endrow['Sugarcane.cane_wt']),
-        'end_sucrose_wt': float(endrow['Sugarcane.sucrose_wt']),
+        'crop_endpoint_date': crop_endrow['Clock.Today'].date().isoformat(),
+        'preharvest_biomass': float(crop_endrow['Sugarcane.biomass']),
+        'preharvest_cane_wt': float(crop_endrow['Sugarcane.cane_wt']),
+        'preharvest_sucrose_wt': float(crop_endrow['Sugarcane.sucrose_wt']),
     }
     summaries.append(row)
 
@@ -51,10 +57,10 @@ for strategy, path in FILES.items():
 
 summary = pd.DataFrame(summaries)
 baseline_water = float(summary.loc[summary['strategy'] == 'baseline', 'total_irrigation_mm'].iloc[0])
-baseline_sucrose = float(summary.loc[summary['strategy'] == 'baseline', 'end_sucrose_wt'].iloc[0])
+baseline_sucrose = float(summary.loc[summary['strategy'] == 'baseline', 'preharvest_sucrose_wt'].iloc[0])
 summary['water_saved_vs_baseline_mm'] = baseline_water - summary['total_irrigation_mm']
 summary['water_saved_vs_baseline_pct'] = 100.0 * summary['water_saved_vs_baseline_mm'] / baseline_water
-summary['sucrose_change_vs_baseline'] = summary['end_sucrose_wt'] - baseline_sucrose
+summary['sucrose_change_vs_baseline'] = summary['preharvest_sucrose_wt'] - baseline_sucrose
 summary['sucrose_change_vs_baseline_pct'] = 100.0 * summary['sucrose_change_vs_baseline'] / baseline_sucrose
 summary.to_csv(ROOT / 'phase3_one_season_summary.csv', index=False)
 
