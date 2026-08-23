@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  phase2-gefs-extract:
+  phase2-gefs-apsim:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -32,23 +32,54 @@ jobs:
         run: |
           python phase2/gefs_ingam_extract.py
 
-      - name: Preview Phase 2 results
+      - name: Prepare official APSIM sugarcane example
         run: |
-          echo '--- 72 h ensemble summary ---'
+          mkdir -p phase2/scenarios
+          curl -L --fail -o phase2/scenarios/Sugarcane_observed.apsimx \
+            https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase2/scenarios/AU_Ingham_observed.met \
+            https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/WeatherFiles/AU_Ingham.met
+
+      - name: Build five forecast rainfall APSIM scenarios
+        run: |
+          python phase2/build_apsim_forecast_scenarios.py
+          cat phase2/output/apsim_scenario_manifest.json
+
+      - name: Run observed and GEFS ensemble scenarios in APSIM
+        run: |
+          docker pull apsiminitiative/apsimng:latest
+          for model in \
+            Sugarcane_observed.apsimx \
+            Sugarcane_GEFS_c00.apsimx \
+            Sugarcane_GEFS_p01.apsimx \
+            Sugarcane_GEFS_p02.apsimx \
+            Sugarcane_GEFS_p03.apsimx \
+            Sugarcane_GEFS_p04.apsimx; do
+              echo "=== Running $model ==="
+              docker run --rm \
+                -v "$PWD/phase2/scenarios:/test-run" \
+                apsiminitiative/apsimng:latest \
+                "/test-run/$model" --csv --verbose
+          done
+
+      - name: Analyse APSIM scenario differences
+        run: |
+          python phase2/analyse_apsim_forecast_scenarios.py
+          echo '--- GEFS 72 h rainfall ---'
           cat phase2/output/gefs_72h_summary.csv
           echo
-          echo '--- inventory preview ---'
-          head -n 20 phase2/output/gefs_apcp_inventory.csv
-          echo
-          echo '--- six-hour forecast preview ---'
-          head -n 20 phase2/output/gefs_apcp_ingham_6hour.csv
+          echo '--- APSIM summary ---'
+          cat phase2/output/apsim_phase2_summary.csv
 
-      - name: Upload Phase 2 forecast outputs
+      - name: Upload Phase 2 outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clover-phase2-gefs-ingham
+          name: clover-phase2-gefs-apsim-ingham
           path: |
             phase2/output/*.csv
             phase2/output/*.json
+            phase2/scenarios/*.Report.csv
+            phase2/scenarios/*.apsimx
+            phase2/scenarios/*.met
           if-no-files-found: error
