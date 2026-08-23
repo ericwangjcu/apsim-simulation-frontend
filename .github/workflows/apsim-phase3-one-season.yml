@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install analysis tools
+        run: python -m pip install pandas
+
       - name: Prepare official APSIM sugarcane example
         run: |
           mkdir -p phase3/run
