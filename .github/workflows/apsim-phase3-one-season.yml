@@ -1,0 +1,67 @@
+name: APSIM Phase 3 one-season forecast irrigation
+
+on:
+  push:
+    branches: [clover-phase3-one-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare official APSIM examples
+        run: |
+          mkdir -p phase3/run
+          curl -L --fail -o phase3/run/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/run/AgPasture.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/AgPasture.apsimx
+          curl -L --fail -o phase3/run/AU_Ingham.met https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/WeatherFiles/AU_Ingham.met
+          python phase3/prepare_baseline.py
+
+      - name: Run automatic-irrigation baseline
+        run: |
+          docker pull apsiminitiative/apsimng:latest
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_phase3_baseline.apsimx --csv --verbose
+
+      - name: Identify 2000 irrigation decisions
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          from pathlib import Path
+          p = Path('phase3/run/Sugarcane_phase3_baseline.Report.csv')
+          df = pd.read_csv(p)
+          df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
+          s = df[(df['Clock.Today'] >= '2000-07-01') & (df['Clock.Today'] <= '2000-09-30')].copy()
+          dcol = 'BaselineIrrigation.DaysSinceIrrigation'
+          acol = 'BaselineIrrigation.AmountToApply'
+          events = s[(s[dcol] == 0) & (s[acol] > 0)].copy()
+          cols = ['Clock.Today', acol, 'BaselineIrrigation.TopSWC', 'BaselineIrrigation.TopSWdeficit',
+                  'Sugarcane.swdef_photo', 'Sugarcane.biomass', 'Sugarcane.cane_wt', 'Sugarcane.sucrose_wt']
+          cols = [c for c in cols if c in events.columns]
+          events[cols].to_csv('phase3/run/baseline_irrigation_events.csv', index=False)
+          print('Baseline irrigation events:', len(events))
+          print(events[cols].to_string(index=False) if len(events) else 'No irrigation events')
+          print('Total irrigation (from event amounts):', events[acol].sum())
+          print('Minimum swdef_photo during season:', s['Sugarcane.swdef_photo'].min())
+          PY
+
+      - name: Upload baseline results
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-baseline
+          path: |
+            phase3/run/Sugarcane_phase3_baseline.Report.csv
+            phase3/run/Sugarcane_phase3_baseline.apsimx
+            phase3/run/baseline_irrigation_events.csv
+          if-no-files-found: error
