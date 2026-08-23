@@ -32,6 +32,7 @@ jobs:
           curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
           curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
           python phase3/prepare_walkamin_screen.py
+          python phase3/add_walkamin_water_balance_outputs.py
 
       - name: Pull APSIM Docker image
         run: docker pull apsiminitiative/apsimng:latest
