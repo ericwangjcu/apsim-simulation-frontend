@@ -1,0 +1,53 @@
+name: APSIM Phase 2 GEFS historical forecast
+
+on:
+  push:
+    branches: [main, clover-phase2-gefs]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  phase2-gefs-extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Extract 72-hour GEFSv12 historical ensemble rainfall for Ingham
+        run: |
+          python phase2/gefs_ingam_extract.py
+
+      - name: Preview Phase 2 results
+        run: |
+          echo '--- 72 h ensemble summary ---'
+          cat phase2/output/gefs_72h_summary.csv
+          echo
+          echo '--- inventory preview ---'
+          head -n 20 phase2/output/gefs_apcp_inventory.csv
+          echo
+          echo '--- raw forecast preview ---'
+          head -n 20 phase2/output/gefs_apcp_ingham_raw.csv
+
+      - name: Upload Phase 2 forecast outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase2-gefs-ingham
+          path: |
+            phase2/output/*.csv
+            phase2/output/*.json
+          if-no-files-found: error
