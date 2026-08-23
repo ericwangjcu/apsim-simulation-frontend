@@ -1,0 +1,68 @@
+name: APSIM Phase 3 Walkamin 3-day risk multi-year
+
+on:
+  push:
+    branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  risk3-season:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        season: [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009]
+    env:
+      SEASON_START_YEAR: ${{ matrix.season }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Prepare Walkamin models and weather
+        run: |
+          mkdir -p phase3/walkamin
+          curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
+          python phase3/prepare_walkamin_screen.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run 3-day risk-based irrigation season
+        run: python phase3/run_walkamin_3d_risk_season.py
+
+      - name: Preview result
+        run: |
+          echo "=== Season ${SEASON_START_YEAR} ==="
+          cat "phase3/walkamin/risk3_${SEASON_START_YEAR}_summary.csv"
+          echo
+          cat "phase3/walkamin/risk3_${SEASON_START_YEAR}_method.json"
+
+      - name: Upload season outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-walkamin-risk3-${{ matrix.season }}
+          path: |
+            phase3/walkamin/risk3_${{ matrix.season }}_summary.csv
+            phase3/walkamin/risk3_${{ matrix.season }}_method.json
+            phase3/walkamin/risk3_${{ matrix.season }}_schedules.json
+            phase3/walkamin/risk3_${{ matrix.season }}_*_decisions.csv
+            phase3/walkamin/risk3_${{ matrix.season }}_*_candidates.csv
+            phase3/walkamin/risk3_${{ matrix.season }}_*_daily.csv
+          if-no-files-found: error
