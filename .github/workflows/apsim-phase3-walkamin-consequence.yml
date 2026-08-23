@@ -34,6 +34,19 @@ jobs:
           python phase3/prepare_walkamin_screen.py
           python phase3/add_walkamin_water_balance_outputs.py
 
+      - name: Correct final-day lookahead state check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('phase3/run_walkamin_consequence_experiment.py')
+          t = p.read_text()
+          old = """    period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] < issue + pd.Timedelta(days=horizon))].copy()\n    if period.empty:\n        raise RuntimeError(f'Empty look-ahead period {issue} {horizon}')\n    sw = pd.to_numeric(period['Sugarcane.swdef_photo'], errors='coerce').dropna()\n    min_sw = float(sw.min()) if not sw.empty else 1.0\n    trigger = period['RootDeficit'] >= DEPLETION_FRACTION * period['RootPAWC']\n    # A forecast can substitute for irrigation when the trigger is relieved after\n    # the decision date without irrigation, while crop stress remains acceptable.\n    later = period[period['Clock.Today'] > issue]\n    relieved = bool(((later['RootDeficit'] < DEPLETION_FRACTION * later['RootPAWC'])).any()) if not later.empty else False\n    end = period.iloc[-1]\n"""
+          new = """    # Crop stress is assessed over the forecast days themselves. Root-zone state is\n    # also inspected on the following morning so rainfall on the final forecast day\n    # has a chance to appear in the StartOfDay soil-water state.\n    period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] < issue + pd.Timedelta(days=horizon))].copy()\n    state_period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] <= issue + pd.Timedelta(days=horizon))].copy()\n    if period.empty:\n        raise RuntimeError(f'Empty look-ahead period {issue} {horizon}')\n    sw = pd.to_numeric(period['Sugarcane.swdef_photo'], errors='coerce').dropna()\n    min_sw = float(sw.min()) if not sw.empty else 1.0\n    # A forecast can substitute for irrigation when the trigger is relieved after\n    # the decision date without irrigation, while crop stress remains acceptable.\n    later = state_period[state_period['Clock.Today'] > issue]\n    relieved = bool(((later['RootDeficit'] < DEPLETION_FRACTION * later['RootPAWC'])).any()) if not later.empty else False\n    end = state_period.iloc[-1]\n"""
+          if old not in t:
+              raise SystemExit('Expected lookahead block not found')
+          p.write_text(t.replace(old, new))
+          PY
+
       - name: Pull APSIM Docker image
         run: docker pull apsiminitiative/apsimng:latest
 
