@@ -1,0 +1,97 @@
+name: APSIM Phase 3 full plant-crop forecast irrigation
+
+on:
+  push:
+    branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  full-plant-comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast and analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Prepare full plant-crop baseline
+        run: |
+          mkdir -p phase3/run
+          curl -L --fail -o phase3/run/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/run/nasa_power_ingam_2000_2001.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=146.18&latitude=-18.65&start=20000401&end=20010630&format=JSON'
+          python phase3/prepare_full_plant_baseline.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run baseline
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_full_plant_baseline.apsimx --csv --verbose
+
+      - name: Identify baseline irrigation events
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          from pathlib import Path
+          p = Path('phase3/run/Sugarcane_full_plant_baseline.Report.csv')
+          df = pd.read_csv(p)
+          df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
+          events = df[df['AppliedToday'] > 0].copy()
+          events['interval_days'] = events['Clock.Today'].diff().dt.days
+          cols = ['Clock.Today','AppliedToday','interval_days','RootDepthUsed','RootPAWC','RootDeficit','Sugarcane.swdef_photo']
+          cols = [c for c in cols if c in events.columns]
+          events[cols].to_csv('phase3/run/full_plant_irrigation_events.csv', index=False)
+          print('Baseline events:', len(events))
+          print(events[cols].to_string(index=False))
+          print('Baseline irrigation total:', events['AppliedToday'].sum())
+          PY
+
+      - name: Retrieve historical GEFS forecasts around irrigation decisions
+        run: python phase3/fetch_full_plant_gefs.py
+
+      - name: Build forecast-aware and perfect-information scenarios
+        run: python phase3/build_full_plant_scenarios.py
+
+      - name: Run forecast-aware strategy
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_full_plant_forecast.apsimx --csv --verbose
+
+      - name: Run perfect-information strategy
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_full_plant_perfect.apsimx --csv --verbose
+
+      - name: Analyse full plant-crop comparison
+        run: python phase3/analyse_full_plant_comparison.py
+
+      - name: Preview results
+        run: |
+          echo '--- full plant strategy summary ---'
+          cat phase3/run/full_plant_strategy_summary.csv
+          echo
+          echo '--- forecast-aware decision days ---'
+          cat phase3/run/full_plant_forecast_aware_decision_days.csv
+
+      - name: Upload full plant-crop comparison outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-full-plant-forecast
+          path: |
+            phase3/run/*.csv
+            phase3/run/*.json
+            phase3/run/*.apsimx
+            phase3/run/*.met
+          if-no-files-found: error
