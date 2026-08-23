@@ -40,10 +40,11 @@ jobs:
           echo '--- inventory preview ---'
           head -n 20 phase2/output/gefs_apcp_inventory.csv
           echo
-          echo '--- raw forecast preview ---'
-          head -n 20 phase2/output/gefs_apcp_ingham_raw.csv
+          echo '--- six-hour forecast preview ---'
+          head -n 20 phase2/output/gefs_apcp_ingham_6hour.csv
 
       - name: Upload Phase 2 forecast outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: clover-phase2-gefs-ingham
