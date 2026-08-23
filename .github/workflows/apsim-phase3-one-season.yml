@@ -21,11 +21,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Prepare official APSIM examples
+      - name: Prepare official APSIM sugarcane example
         run: |
           mkdir -p phase3/run
           curl -L --fail -o phase3/run/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
-          curl -L --fail -o phase3/run/AgPasture.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/AgPasture.apsimx
           curl -L --fail -o phase3/run/AU_Ingham.met https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/WeatherFiles/AU_Ingham.met
           python phase3/prepare_baseline.py
 
@@ -43,16 +42,15 @@ jobs:
           df = pd.read_csv(p)
           df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
           s = df[(df['Clock.Today'] >= '2000-07-01') & (df['Clock.Today'] <= '2000-09-30')].copy()
-          dcol = 'BaselineIrrigation.DaysSinceIrrigation'
-          acol = 'BaselineIrrigation.AmountToApply'
-          events = s[(s[dcol] == 0) & (s[acol] > 0)].copy()
+          acol = 'BaselineIrrigation.AppliedToday'
+          events = s[s[acol] > 0].copy()
           cols = ['Clock.Today', acol, 'BaselineIrrigation.TopSWC', 'BaselineIrrigation.TopSWdeficit',
                   'Sugarcane.swdef_photo', 'Sugarcane.biomass', 'Sugarcane.cane_wt', 'Sugarcane.sucrose_wt']
           cols = [c for c in cols if c in events.columns]
           events[cols].to_csv('phase3/run/baseline_irrigation_events.csv', index=False)
           print('Baseline irrigation events:', len(events))
           print(events[cols].to_string(index=False) if len(events) else 'No irrigation events')
-          print('Total irrigation (from event amounts):', events[acol].sum())
+          print('Total irrigation:', events[acol].sum())
           print('Minimum swdef_photo during season:', s['Sugarcane.swdef_photo'].min())
           PY
 
