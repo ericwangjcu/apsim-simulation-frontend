@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -19,7 +20,6 @@ MEMBERS = [0, 1, 2, 3, 4]
 MAX_HOUR = 72
 RAIN_THRESHOLD_MM = 20.0
 PROB_THRESHOLD = 0.60
-START = pd.Timestamp('2008-04-01')
 IRRIGATION_END = pd.Timestamp('2009-05-13')
 
 
@@ -100,7 +100,22 @@ def one_date(issue: pd.Timestamp):
         'prob_ge_20mm': float(np.mean(arr >= RAIN_THRESHOLD_MM)),
     }
     print(issue.date(), 'mean=', round(row['ensemble_mean_mm'], 2), 'P>=20=', row['prob_ge_20mm'])
-    return row
+    return issue, row
+
+
+def fetch_dates(dates):
+    out = {}
+    dates = [pd.Timestamp(d) for d in sorted(set(dates))]
+    if not dates:
+        return out
+    # Every issue/member has a separate cache directory, so date-level parallelism
+    # is safe and much faster than the earlier sequential proof-of-concept.
+    with ThreadPoolExecutor(max_workers=min(8, len(dates))) as pool:
+        futures = {pool.submit(one_date, d): d for d in dates}
+        for fut in as_completed(futures):
+            d, row = fut.result()
+            out[d] = row
+    return out
 
 
 base = pd.read_csv(ROOT / 'Walkamin_2008_2009_baseline.Report.csv')
@@ -108,16 +123,9 @@ base['Clock.Today'] = pd.to_datetime(base['Clock.Today'])
 events = base[base['AppliedToday'] > 0].copy()
 events.to_csv(ROOT / 'walkamin_2008_baseline_events.csv', index=False)
 
-# Stage 1: retrieve the actual baseline decision dates. This is enough to know
-# whether the forecast would hold or irrigate on each baseline decision.
-rows_by_date = {}
-for d in sorted(events['Clock.Today'].dt.normalize().unique()):
-    d = pd.Timestamp(d)
-    rows_by_date[d] = one_date(d)
+event_dates = [pd.Timestamp(d) for d in events['Clock.Today'].dt.normalize().unique()]
+rows_by_date = fetch_dates(event_dates)
 
-# Stage 2: only if a baseline decision is held do we need the following one and
-# two daily forecasts for the rolling two-day hold rule. This keeps the proof-of-
-# concept fast while preserving the decision logic.
 followups = set()
 for d, row in rows_by_date.items():
     if row['prob_ge_20mm'] >= PROB_THRESHOLD:
@@ -125,9 +133,7 @@ for d, row in rows_by_date.items():
             x = d + pd.Timedelta(days=offset)
             if x <= IRRIGATION_END:
                 followups.add(x)
-for d in sorted(followups):
-    if d not in rows_by_date:
-        rows_by_date[d] = one_date(d)
+rows_by_date.update(fetch_dates([d for d in followups if d not in rows_by_date]))
 
 forecast = pd.DataFrame(rows_by_date.values()).sort_values('issue_date')
 forecast.to_csv(ROOT / 'walkamin_2008_gefs_forecasts.csv', index=False)
@@ -136,7 +142,7 @@ meta = {
     'forecast_horizon_hours': 72, 'members': ['c00','p01','p02','p03','p04'],
     'rain_threshold_mm': RAIN_THRESHOLD_MM, 'probability_threshold': PROB_THRESHOLD,
     'source': 'NOAA GEFSv12 reforecast via Herbie / NOAA AWS open-data archive',
-    'retrieval': 'baseline decision dates first; +1/+2 days only for decisions meeting hold threshold',
+    'retrieval': 'parallel baseline decision dates; +1/+2 days only for decisions meeting hold threshold',
     'note': 'Proof-of-concept. 00 UTC issue date mapped directly to APSIM decision date; timezone alignment not yet refined.'
 }
 (ROOT / 'walkamin_2008_gefs_metadata.json').write_text(json.dumps(meta, indent=2))
