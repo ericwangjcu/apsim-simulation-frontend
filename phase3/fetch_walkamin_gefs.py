@@ -18,7 +18,7 @@ LON = 145.43
 MEMBERS = [0, 1, 2, 3, 4]
 MAX_HOUR = 72
 RAIN_THRESHOLD_MM = 20.0
-SEASON_YEAR = 2008
+PROB_THRESHOLD = 0.60
 START = pd.Timestamp('2008-04-01')
 IRRIGATION_END = pd.Timestamp('2009-05-13')
 
@@ -108,23 +108,37 @@ base['Clock.Today'] = pd.to_datetime(base['Clock.Today'])
 events = base[base['AppliedToday'] > 0].copy()
 events.to_csv(ROOT / 'walkamin_2008_baseline_events.csv', index=False)
 
-candidates = set()
-for d in events['Clock.Today']:
-    for offset in range(0, 4):
-        x = d + pd.Timedelta(days=offset)
-        if START <= x <= IRRIGATION_END:
-            candidates.add(x)
-dates = sorted(candidates)
-print(f'Walkamin forecast candidate dates: {len(dates)} ({dates[0].date()} to {dates[-1].date()})')
+# Stage 1: retrieve the actual baseline decision dates. This is enough to know
+# whether the forecast would hold or irrigate on each baseline decision.
+rows_by_date = {}
+for d in sorted(events['Clock.Today'].dt.normalize().unique()):
+    d = pd.Timestamp(d)
+    rows_by_date[d] = one_date(d)
 
-rows = [one_date(d) for d in dates]
-forecast = pd.DataFrame(rows).sort_values('issue_date')
+# Stage 2: only if a baseline decision is held do we need the following one and
+# two daily forecasts for the rolling two-day hold rule. This keeps the proof-of-
+# concept fast while preserving the decision logic.
+followups = set()
+for d, row in rows_by_date.items():
+    if row['prob_ge_20mm'] >= PROB_THRESHOLD:
+        for offset in (1, 2):
+            x = d + pd.Timedelta(days=offset)
+            if x <= IRRIGATION_END:
+                followups.add(x)
+for d in sorted(followups):
+    if d not in rows_by_date:
+        rows_by_date[d] = one_date(d)
+
+forecast = pd.DataFrame(rows_by_date.values()).sort_values('issue_date')
 forecast.to_csv(ROOT / 'walkamin_2008_gefs_forecasts.csv', index=False)
 meta = {
     'site': 'Walkamin', 'lat': LAT, 'lon': LON, 'season': '2008-04-01 to 2009-06-24',
     'forecast_horizon_hours': 72, 'members': ['c00','p01','p02','p03','p04'],
-    'rain_threshold_mm': RAIN_THRESHOLD_MM,
+    'rain_threshold_mm': RAIN_THRESHOLD_MM, 'probability_threshold': PROB_THRESHOLD,
     'source': 'NOAA GEFSv12 reforecast via Herbie / NOAA AWS open-data archive',
+    'retrieval': 'baseline decision dates first; +1/+2 days only for decisions meeting hold threshold',
     'note': 'Proof-of-concept. 00 UTC issue date mapped directly to APSIM decision date; timezone alignment not yet refined.'
 }
 (ROOT / 'walkamin_2008_gefs_metadata.json').write_text(json.dumps(meta, indent=2))
+print(f'Completed {len(forecast)} Walkamin forecast issue dates')
+print(forecast[['issue_date','ensemble_mean_mm','ensemble_median_mm','prob_ge_20mm']].to_string(index=False))
