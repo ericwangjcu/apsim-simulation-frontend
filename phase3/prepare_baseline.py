@@ -25,9 +25,6 @@ field = find_by_name(sugar, 'Field')
 report = find_by_name(sugar, 'Report')
 weather = find_by_name(sugar, 'Weather')
 
-# Keep this manager in the same legacy JSON shape used by the official
-# Sugarcane example (Version 138). APSIM will upgrade the complete file when
-# it is loaded, avoiding mixed-version model nodes.
 manager_code = r'''using Models.Interfaces;
 using Models.Soils;
 using Models.Core;
@@ -156,12 +153,13 @@ field['Children'].append(irrigation)
 field['Children'].append(manager)
 weather['FileName'] = '/test-run/AU_Ingham.met'
 
+# Manager script properties require the .Script path in APSIM reports.
 extra = [
-    '[BaselineIrrigation].DaysSinceIrrigation',
-    '[BaselineIrrigation].AppliedToday',
-    '[BaselineIrrigation].TotalIrrigation',
-    '[BaselineIrrigation].TopSWC',
-    '[BaselineIrrigation].TopSWdeficit',
+    '[BaselineIrrigation].Script.DaysSinceIrrigation as DaysSinceIrrigation',
+    '[BaselineIrrigation].Script.AppliedToday as AppliedToday',
+    '[BaselineIrrigation].Script.TotalIrrigation as TotalIrrigation',
+    '[BaselineIrrigation].Script.TopSWC as TopSWC',
+    '[BaselineIrrigation].Script.TopSWdeficit as TopSWdeficit',
 ]
 for v in extra:
     if v not in report['VariableNames']:
