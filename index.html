@@ -61,10 +61,10 @@
       <section class="kpi-grid">
         <article class="kpi"><span>Water saved</span><strong id="kpiWater">—</strong><small id="kpiWaterPct">—</small></article>
         <article class="kpi"><span>Farm water saved</span><strong id="kpiML">—</strong><small id="kpiMLNote">based on farm area</small></article>
-        <article class="kpi"><span>Irrigations avoided</span><strong id="kpiEvents">—</strong><small>average per year</small></article>
-        <article class="kpi"><span>Pump time saved</span><strong id="kpiHours">—</strong><small>average per year</small></article>
-        <article class="kpi"><span>Operating saving</span><strong id="kpiCost">—</strong><small>water + energy / year</small></article>
-        <article class="kpi"><span>Cane yield impact</span><strong id="kpiYield">—</strong><small id="kpiYieldNote">forecast vs baseline</small></article>
+        <article class="kpi"><span>Forecast hold days</span><strong id="kpiEvents">—</strong><small>irrigation delayed by forecast</small></article>
+        <article class="kpi"><span>Pump time saved</span><strong id="kpiHours">—</strong><small>for this season</small></article>
+        <article class="kpi"><span>Operating saving</span><strong id="kpiCost">—</strong><small>water + energy</small></article>
+        <article class="kpi"><span>Cane outcome</span><strong id="kpiYield">—</strong><small id="kpiYieldNote">forecast vs baseline</small></article>
       </section>
 
       <nav class="tabs" aria-label="Result views">
@@ -82,7 +82,7 @@
             <div id="overviewNarrative" class="narrative"></div>
           </article>
           <article class="panel">
-            <h3>Average annual comparison</h3>
+            <h3>Season comparison</h3>
             <div id="overviewChart" class="chart"></div>
           </article>
         </div>
@@ -94,15 +94,15 @@
 
       <section id="annual" class="tab-panel">
         <article class="panel">
-          <div class="panel-title-row"><div><h3>Annual irrigation comparison</h3><p class="subtle">See whether the forecast strategy helped consistently or only in particular seasons.</p></div></div>
+          <div class="panel-title-row"><div><h3>Historical season comparison</h3><p class="subtle">The first real cube currently contains the completed 2008–09 Walkamin comparison.</p></div></div>
           <div id="annualChart" class="chart tall"></div>
-          <div class="table-scroll"><table><thead><tr><th>Season</th><th>Baseline</th><th>Forecast</th><th>Saved</th><th>Saving</th><th>Yield change</th><th>Outcome</th></tr></thead><tbody id="annualTable"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>Season</th><th>Baseline</th><th>Forecast</th><th>Saved</th><th>Saving</th><th>Cane change</th><th>Outcome</th></tr></thead><tbody id="annualTable"></tbody></table></div>
         </article>
       </section>
 
       <section id="timeline" class="tab-panel">
         <article class="panel">
-          <div class="panel-title-row"><div><h3>What happened through the season?</h3><p class="subtle">Inspect rainfall, crop water stress and irrigation decisions.</p></div><label class="compact-label">Season<select id="timelineYear"></select></label></div>
+          <div class="panel-title-row"><div><h3>What happened through the season?</h3><p class="subtle">Inspect rainfall, crop water stress and the dates where the forecast changed the irrigation decision.</p></div><label class="compact-label">Season<select id="timelineYear"></select></label></div>
           <div id="timelineChart" class="chart tall"></div>
         </article>
         <article class="panel">
@@ -120,15 +120,15 @@
 
       <section id="compare" class="tab-panel">
         <article class="panel">
-          <div class="panel-title-row"><div><h3>Compare forecast strategies</h3><p class="subtle">Pin the current scenario as A, then select another configuration and pin it as B.</p></div><div class="button-row"><button id="pinA" class="secondary">Pin as A</button><button id="pinB" class="secondary">Pin as B</button></div></div>
-          <div id="compareEmpty" class="empty-state">Pin two scenarios to compare them.</div>
+          <div class="panel-title-row"><div><h3>Compare forecast strategies</h3><p class="subtle">This becomes active as more pre-run configurations are added to the cube.</p></div><div class="button-row"><button id="pinA" class="secondary">Pin as A</button><button id="pinB" class="secondary">Pin as B</button></div></div>
+          <div id="compareEmpty" class="empty-state">One real scenario is loaded now. Add more pre-run configurations to compare strategies.</div>
           <div id="compareContent" class="compare-grid hidden"></div>
         </article>
       </section>
     </section>
   </main>
 
-  <footer>Prototype CLOVER interface · Precomputed simulation cube · No APSIM run is triggered by the browser.</footer>
+  <footer>CLOVER interface · Precomputed historical simulation cube · No APSIM run is triggered by the browser.</footer>
   <script src="app.js"></script>
 </body>
 </html>
