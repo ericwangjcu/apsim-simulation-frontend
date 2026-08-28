@@ -8,127 +8,152 @@
   <script src="https://code.highcharts.com/highcharts.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <div class="brand-row"><span class="clover-mark">☘</span><strong>CLOVER</strong></div>
-      <h1>Forecast-informed irrigation explorer</h1>
-      <p>Explore how different rainfall-forecast rules could change irrigation, water use and crop outcomes.</p>
-    </div>
-    <span id="datasetBadge" class="badge warning">Loading dataset…</span>
-  </header>
+  <div class="app-shell">
+    <nav class="rail" aria-label="CLOVER navigation">
+      <div class="rail-brand"><span class="clover-mark">☘</span><span>CLOVER</span></div>
+      <button class="rail-item active" type="button"><span>▦</span><small>Explorer</small></button>
+      <button class="rail-item" type="button"><span>◫</span><small>Sites</small></button>
+      <button class="rail-item" type="button"><span>≋</span><small>Data</small></button>
+      <div class="rail-spacer"></div>
+      <button class="rail-item" type="button"><span>?</span><small>Help</small></button>
+    </nav>
 
-  <div id="datasetNotice" class="notice"></div>
-
-  <main class="layout">
-    <aside class="panel config-panel">
-      <div class="panel-title-row">
-        <h2>Your scenario</h2>
-        <button id="resetButton" class="text-button" type="button">Reset</button>
-      </div>
-
-      <label>Location<select id="site"></select></label>
-      <label>Soil<select id="soil"></select></label>
-      <label>Crop / stage<select id="crop"></select></label>
-      <label>Historical period<select id="period"></select></label>
-      <label>Irrigation application<select id="irrigationAmount"></select></label>
-      <label>Forecast horizon<select id="forecastHorizon"></select></label>
-      <label>Rainfall threshold<select id="rainThreshold"></select></label>
-      <label>Forecast confidence<select id="probabilityThreshold"></select></label>
-
-      <button id="runButton" class="primary" type="button">Show comparison</button>
-      <p id="matchHint" class="hint"></p>
-
-      <details class="advanced">
-        <summary>Farm and cost settings</summary>
-        <label>Farm area (ha)<input id="farmArea" type="number" min="0.1" step="0.1" value="40" /></label>
-        <label>Pump flow (L/s)<input id="pumpFlow" type="number" min="1" step="1" value="60" /></label>
-        <label>Pump power (kW)<input id="pumpPower" type="number" min="0.1" step="0.1" value="10" /></label>
-        <label>Energy price ($/kWh)<input id="energyPrice" type="number" min="0" step="0.01" value="0.30" /></label>
-        <label>Water price ($/ML)<input id="waterPrice" type="number" min="0" step="0.01" value="20.35" /></label>
-      </details>
-    </aside>
-
-    <section class="content">
-      <section id="resultHero" class="panel hero">
+    <div class="app-main">
+      <header class="tool-header">
         <div>
-          <span class="eyebrow">Selected strategy</span>
-          <h2 id="heroTitle">Choose a scenario</h2>
-          <p id="heroText">Select settings and show the comparison.</p>
+          <div class="breadcrumb">CLOVER / Historical forecast evaluation</div>
+          <h1>Irrigation scenario explorer</h1>
         </div>
-        <div class="hero-pill" id="heroPill">—</div>
-      </section>
-
-      <section class="kpi-grid">
-        <article class="kpi"><span>Water saved</span><strong id="kpiWater">—</strong><small id="kpiWaterPct">—</small></article>
-        <article class="kpi"><span>Farm water saved</span><strong id="kpiML">—</strong><small id="kpiMLNote">based on farm area</small></article>
-        <article class="kpi"><span>Forecast hold days</span><strong id="kpiEvents">—</strong><small>irrigation delayed by forecast</small></article>
-        <article class="kpi"><span>Pump time saved</span><strong id="kpiHours">—</strong><small>for this season</small></article>
-        <article class="kpi"><span>Operating saving</span><strong id="kpiCost">—</strong><small>water + energy</small></article>
-        <article class="kpi"><span>Cane outcome</span><strong id="kpiYield">—</strong><small id="kpiYieldNote">forecast vs baseline</small></article>
-      </section>
-
-      <nav class="tabs" aria-label="Result views">
-        <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="annual">Year by year</button>
-        <button class="tab" data-tab="timeline">Season timeline</button>
-        <button class="tab" data-tab="cost">Water & cost</button>
-        <button class="tab" data-tab="compare">Compare</button>
-      </nav>
-
-      <section id="overview" class="tab-panel active">
-        <div class="two-col">
-          <article class="panel">
-            <h3>What changed?</h3>
-            <div id="overviewNarrative" class="narrative"></div>
-          </article>
-          <article class="panel">
-            <h3>Season comparison</h3>
-            <div id="overviewChart" class="chart"></div>
-          </article>
+        <div class="header-status">
+          <span class="status-dot"></span>
+          <span id="datasetBadge" class="badge warning">Loading dataset…</span>
         </div>
-        <article class="panel metrics-table-wrap">
-          <h3>Water balance and crop response</h3>
-          <table class="metrics-table"><tbody id="overviewMetrics"></tbody></table>
-        </article>
-      </section>
+      </header>
 
-      <section id="annual" class="tab-panel">
-        <article class="panel">
-          <div class="panel-title-row"><div><h3>Historical season comparison</h3><p class="subtle">The first real cube currently contains the completed 2008–09 Walkamin comparison.</p></div></div>
-          <div id="annualChart" class="chart tall"></div>
-          <div class="table-scroll"><table><thead><tr><th>Season</th><th>Baseline</th><th>Forecast</th><th>Saved</th><th>Saving</th><th>Cane change</th><th>Outcome</th></tr></thead><tbody id="annualTable"></tbody></table></div>
-        </article>
-      </section>
+      <div id="datasetNotice" class="notice"></div>
 
-      <section id="timeline" class="tab-panel">
-        <article class="panel">
-          <div class="panel-title-row"><div><h3>What happened through the season?</h3><p class="subtle">Inspect rainfall, crop water stress and the dates where the forecast changed the irrigation decision.</p></div><label class="compact-label">Season<select id="timelineYear"></select></label></div>
-          <div id="timelineChart" class="chart tall"></div>
-        </article>
-        <article class="panel">
-          <h3>Decision changes</h3>
-          <div id="decisionList" class="decision-list"></div>
-        </article>
-      </section>
+      <main class="workspace">
+        <aside class="config-panel">
+          <div class="config-header">
+            <div><span class="section-kicker">SCENARIO</span><h2>Simulation inputs</h2></div>
+            <button id="resetButton" class="text-button" type="button">Reset</button>
+          </div>
 
-      <section id="cost" class="tab-panel">
-        <div class="two-col">
-          <article class="panel"><h3>Farm-scale savings</h3><div id="costSummary" class="cost-grid"></div></article>
-          <article class="panel"><h3>How it is calculated</h3><p class="subtle">Simulation outputs stay in mm. Farm area, pump and prices are applied instantly in the browser, so they do not increase the simulation cube.</p><div id="costFormula" class="formula-box"></div></article>
-        </div>
-      </section>
+          <div class="input-group">
+            <div class="group-title">Farm context</div>
+            <label>Location<select id="site"></select></label>
+            <label>Soil<select id="soil"></select></label>
+            <label>Crop / stage<select id="crop"></select></label>
+            <label>Historical period<select id="period"></select></label>
+          </div>
 
-      <section id="compare" class="tab-panel">
-        <article class="panel">
-          <div class="panel-title-row"><div><h3>Compare forecast strategies</h3><p class="subtle">This becomes active as more pre-run configurations are added to the cube.</p></div><div class="button-row"><button id="pinA" class="secondary">Pin as A</button><button id="pinB" class="secondary">Pin as B</button></div></div>
-          <div id="compareEmpty" class="empty-state">One real scenario is loaded now. Add more pre-run configurations to compare strategies.</div>
-          <div id="compareContent" class="compare-grid hidden"></div>
-        </article>
-      </section>
-    </section>
-  </main>
+          <div class="input-group">
+            <div class="group-title">Irrigation rule</div>
+            <label>Irrigation application<select id="irrigationAmount"></select></label>
+          </div>
 
-  <footer>CLOVER interface · Precomputed historical simulation cube · No APSIM run is triggered by the browser.</footer>
+          <div class="input-group forecast-group">
+            <div class="group-title">Forecast decision rule</div>
+            <label>Forecast horizon<select id="forecastHorizon"></select></label>
+            <label>Rainfall threshold<select id="rainThreshold"></select></label>
+            <label>Forecast confidence<select id="probabilityThreshold"></select></label>
+          </div>
+
+          <button id="runButton" class="primary" type="button">Apply scenario</button>
+          <div id="matchHint" class="scenario-state"></div>
+
+          <details class="advanced">
+            <summary>Farm economics</summary>
+            <label>Farm area (ha)<input id="farmArea" type="number" min="0.1" step="0.1" value="40" /></label>
+            <label>Pump flow (L/s)<input id="pumpFlow" type="number" min="1" step="1" value="60" /></label>
+            <label>Pump power (kW)<input id="pumpPower" type="number" min="0.1" step="0.1" value="10" /></label>
+            <label>Energy price ($/kWh)<input id="energyPrice" type="number" min="0" step="0.01" value="0.30" /></label>
+            <label>Water price ($/ML)<input id="waterPrice" type="number" min="0" step="0.01" value="20.35" /></label>
+          </details>
+        </aside>
+
+        <section class="content">
+          <section id="resultHero" class="result-head">
+            <div>
+              <span class="eyebrow">ACTIVE RESULT</span>
+              <h2 id="heroTitle">Choose a scenario</h2>
+              <p id="heroText">Select settings and show the comparison.</p>
+            </div>
+            <div class="hero-pill" id="heroPill">—</div>
+          </section>
+
+          <section class="metric-strip">
+            <article class="metric"><span>Water saved</span><strong id="kpiWater">—</strong><small id="kpiWaterPct">—</small></article>
+            <article class="metric"><span>Farm water</span><strong id="kpiML">—</strong><small id="kpiMLNote">based on farm area</small></article>
+            <article class="metric"><span>Forecast holds</span><strong id="kpiEvents">—</strong><small>days delayed</small></article>
+            <article class="metric"><span>Pump time</span><strong id="kpiHours">—</strong><small>saved</small></article>
+            <article class="metric"><span>Operating saving</span><strong id="kpiCost">—</strong><small>water + energy</small></article>
+            <article class="metric"><span>Cane outcome</span><strong id="kpiYield">—</strong><small id="kpiYieldNote">forecast vs baseline</small></article>
+          </section>
+
+          <nav class="tabs" aria-label="Result views">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="annual">Historical seasons</button>
+            <button class="tab" data-tab="timeline">Season timeline</button>
+            <button class="tab" data-tab="cost">Farm economics</button>
+            <button class="tab" data-tab="compare">Compare strategies</button>
+          </nav>
+
+          <section id="overview" class="tab-panel active">
+            <div class="overview-grid">
+              <article class="tool-panel chart-panel">
+                <div class="panel-heading"><div><span class="section-kicker">RESULT</span><h3>Baseline vs forecast-informed</h3></div></div>
+                <div id="overviewChart" class="chart"></div>
+              </article>
+              <article class="tool-panel insight-panel">
+                <div class="panel-heading"><div><span class="section-kicker">INTERPRETATION</span><h3>What changed?</h3></div></div>
+                <div id="overviewNarrative" class="narrative"></div>
+              </article>
+            </div>
+            <article class="tool-panel metrics-table-wrap">
+              <div class="panel-heading"><div><span class="section-kicker">DETAIL</span><h3>Water balance and crop response</h3></div></div>
+              <table class="metrics-table"><tbody id="overviewMetrics"></tbody></table>
+            </article>
+          </section>
+
+          <section id="annual" class="tab-panel">
+            <article class="tool-panel">
+              <div class="panel-heading"><div><span class="section-kicker">HISTORICAL PERFORMANCE</span><h3>Season comparison</h3><p class="subtle">The first real cube currently contains the completed 2008–09 Walkamin comparison.</p></div></div>
+              <div id="annualChart" class="chart tall"></div>
+              <div class="table-scroll"><table><thead><tr><th>Season</th><th>Baseline</th><th>Forecast</th><th>Saved</th><th>Saving</th><th>Cane change</th><th>Outcome</th></tr></thead><tbody id="annualTable"></tbody></table></div>
+            </article>
+          </section>
+
+          <section id="timeline" class="tab-panel">
+            <article class="tool-panel">
+              <div class="panel-heading split"><div><span class="section-kicker">SEASON TRACE</span><h3>Rainfall, stress and irrigation decisions</h3><p class="subtle">The timeline shows when forecast information changed the irrigation action.</p></div><label class="compact-label">Season<select id="timelineYear"></select></label></div>
+              <div id="timelineChart" class="chart tall"></div>
+            </article>
+            <article class="tool-panel decision-panel">
+              <div class="panel-heading"><div><span class="section-kicker">DECISION LOG</span><h3>Forecast interventions</h3></div></div>
+              <div id="decisionList" class="decision-list"></div>
+            </article>
+          </section>
+
+          <section id="cost" class="tab-panel">
+            <div class="two-col">
+              <article class="tool-panel"><div class="panel-heading"><span class="section-kicker">FARM SCALE</span><h3>Water and operating savings</h3></div><div id="costSummary" class="cost-grid"></div></article>
+              <article class="tool-panel"><div class="panel-heading"><span class="section-kicker">METHOD</span><h3>Calculation</h3></div><p class="subtle">Simulation outputs stay in mm. Farm area, pump and prices are applied instantly in the browser.</p><div id="costFormula" class="formula-box"></div></article>
+            </div>
+          </section>
+
+          <section id="compare" class="tab-panel">
+            <article class="tool-panel">
+              <div class="panel-heading split"><div><span class="section-kicker">SCENARIO TEST</span><h3>Compare forecast strategies</h3><p class="subtle">Pin two pre-run scenarios and compare them side-by-side.</p></div><div class="button-row"><button id="pinA" class="secondary">Pin A</button><button id="pinB" class="secondary">Pin B</button></div></div>
+              <div id="compareEmpty" class="empty-state">One real scenario is loaded now. Add more pre-run configurations to compare strategies.</div>
+              <div id="compareContent" class="compare-grid hidden"></div>
+            </article>
+          </section>
+        </section>
+      </main>
+      <footer>Precomputed historical simulation cube · Browser lookup only · APSIM is not run from this screen</footer>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
