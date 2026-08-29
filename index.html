@@ -1,159 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLOVER Irrigation Explorer</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://code.highcharts.com/highcharts.js"></script>
-</head>
-<body>
-  <div class="app-shell">
-    <nav class="rail" aria-label="CLOVER navigation">
-      <div class="rail-brand"><span class="clover-mark">☘</span><span>CLOVER</span></div>
-      <button class="rail-item active" type="button"><span>▦</span><small>Explorer</small></button>
-      <button class="rail-item" type="button"><span>◫</span><small>Sites</small></button>
-      <button class="rail-item" type="button"><span>≋</span><small>Data</small></button>
-      <div class="rail-spacer"></div>
-      <button class="rail-item" type="button"><span>?</span><small>Help</small></button>
-    </nav>
-
-    <div class="app-main">
-      <header class="tool-header">
-        <div>
-          <div class="breadcrumb">CLOVER / Historical forecast evaluation</div>
-          <h1>Irrigation scenario explorer</h1>
-        </div>
-        <div class="header-status">
-          <span class="status-dot"></span>
-          <span id="datasetBadge" class="badge warning">Loading dataset…</span>
-        </div>
-      </header>
-
-      <div id="datasetNotice" class="notice"></div>
-
-      <main class="workspace">
-        <aside class="config-panel">
-          <div class="config-header">
-            <div><span class="section-kicker">SCENARIO</span><h2>Simulation inputs</h2></div>
-            <button id="resetButton" class="text-button" type="button">Reset</button>
-          </div>
-
-          <div class="input-group">
-            <div class="group-title">Farm context</div>
-            <label>Location<select id="site"></select></label>
-            <label>Soil<select id="soil"></select></label>
-            <label>Crop / stage<select id="crop"></select></label>
-            <label>Historical period<select id="period"></select></label>
-          </div>
-
-          <div class="input-group">
-            <div class="group-title">Irrigation rule</div>
-            <label>Irrigation application<select id="irrigationAmount"></select></label>
-          </div>
-
-          <div class="input-group forecast-group">
-            <div class="group-title">Forecast decision rule</div>
-            <label>Forecast horizon<select id="forecastHorizon"></select></label>
-            <label>Rainfall threshold<select id="rainThreshold"></select></label>
-            <label>Forecast confidence<select id="probabilityThreshold"></select></label>
-          </div>
-
-          <button id="runButton" class="primary" type="button">Apply scenario</button>
-          <div id="matchHint" class="scenario-state"></div>
-
-          <details class="advanced">
-            <summary>Farm economics</summary>
-            <label>Farm area (ha)<input id="farmArea" type="number" min="0.1" step="0.1" value="40" /></label>
-            <label>Pump flow (L/s)<input id="pumpFlow" type="number" min="1" step="1" value="60" /></label>
-            <label>Pump power (kW)<input id="pumpPower" type="number" min="0.1" step="0.1" value="10" /></label>
-            <label>Energy price ($/kWh)<input id="energyPrice" type="number" min="0" step="0.01" value="0.30" /></label>
-            <label>Water price ($/ML)<input id="waterPrice" type="number" min="0" step="0.01" value="20.35" /></label>
-          </details>
-        </aside>
-
-        <section class="content">
-          <section id="resultHero" class="result-head">
-            <div>
-              <span class="eyebrow">ACTIVE RESULT</span>
-              <h2 id="heroTitle">Choose a scenario</h2>
-              <p id="heroText">Select settings and show the comparison.</p>
-            </div>
-            <div class="hero-pill" id="heroPill">—</div>
-          </section>
-
-          <section class="metric-strip">
-            <article class="metric"><span>Water saved</span><strong id="kpiWater">—</strong><small id="kpiWaterPct">—</small></article>
-            <article class="metric"><span>Farm water</span><strong id="kpiML">—</strong><small id="kpiMLNote">based on farm area</small></article>
-            <article class="metric"><span>Forecast holds</span><strong id="kpiEvents">—</strong><small>days delayed</small></article>
-            <article class="metric"><span>Pump time</span><strong id="kpiHours">—</strong><small>saved</small></article>
-            <article class="metric"><span>Operating saving</span><strong id="kpiCost">—</strong><small>water + energy</small></article>
-            <article class="metric"><span>Cane outcome</span><strong id="kpiYield">—</strong><small id="kpiYieldNote">forecast vs baseline</small></article>
-          </section>
-
-          <nav class="tabs" aria-label="Result views">
-            <button class="tab active" data-tab="overview">Overview</button>
-            <button class="tab" data-tab="annual">Historical seasons</button>
-            <button class="tab" data-tab="timeline">Season timeline</button>
-            <button class="tab" data-tab="cost">Farm economics</button>
-            <button class="tab" data-tab="compare">Compare strategies</button>
-          </nav>
-
-          <section id="overview" class="tab-panel active">
-            <div class="overview-grid">
-              <article class="tool-panel chart-panel">
-                <div class="panel-heading"><div><span class="section-kicker">RESULT</span><h3>Baseline vs forecast-informed</h3></div></div>
-                <div id="overviewChart" class="chart"></div>
-              </article>
-              <article class="tool-panel insight-panel">
-                <div class="panel-heading"><div><span class="section-kicker">INTERPRETATION</span><h3>What changed?</h3></div></div>
-                <div id="overviewNarrative" class="narrative"></div>
-              </article>
-            </div>
-            <article class="tool-panel metrics-table-wrap">
-              <div class="panel-heading"><div><span class="section-kicker">DETAIL</span><h3>Water balance and crop response</h3></div></div>
-              <table class="metrics-table"><tbody id="overviewMetrics"></tbody></table>
-            </article>
-          </section>
-
-          <section id="annual" class="tab-panel">
-            <article class="tool-panel">
-              <div class="panel-heading"><div><span class="section-kicker">HISTORICAL PERFORMANCE</span><h3>Season comparison</h3><p class="subtle">The first real cube currently contains the completed 2008–09 Walkamin comparison.</p></div></div>
-              <div id="annualChart" class="chart tall"></div>
-              <div class="table-scroll"><table><thead><tr><th>Season</th><th>Baseline</th><th>Forecast</th><th>Saved</th><th>Saving</th><th>Cane change</th><th>Outcome</th></tr></thead><tbody id="annualTable"></tbody></table></div>
-            </article>
-          </section>
-
-          <section id="timeline" class="tab-panel">
-            <article class="tool-panel">
-              <div class="panel-heading split"><div><span class="section-kicker">SEASON TRACE</span><h3>Rainfall, stress and irrigation decisions</h3><p class="subtle">The timeline shows when forecast information changed the irrigation action.</p></div><label class="compact-label">Season<select id="timelineYear"></select></label></div>
-              <div id="timelineChart" class="chart tall"></div>
-            </article>
-            <article class="tool-panel decision-panel">
-              <div class="panel-heading"><div><span class="section-kicker">DECISION LOG</span><h3>Forecast interventions</h3></div></div>
-              <div id="decisionList" class="decision-list"></div>
-            </article>
-          </section>
-
-          <section id="cost" class="tab-panel">
-            <div class="two-col">
-              <article class="tool-panel"><div class="panel-heading"><span class="section-kicker">FARM SCALE</span><h3>Water and operating savings</h3></div><div id="costSummary" class="cost-grid"></div></article>
-              <article class="tool-panel"><div class="panel-heading"><span class="section-kicker">METHOD</span><h3>Calculation</h3></div><p class="subtle">Simulation outputs stay in mm. Farm area, pump and prices are applied instantly in the browser.</p><div id="costFormula" class="formula-box"></div></article>
-            </div>
-          </section>
-
-          <section id="compare" class="tab-panel">
-            <article class="tool-panel">
-              <div class="panel-heading split"><div><span class="section-kicker">SCENARIO TEST</span><h3>Compare forecast strategies</h3><p class="subtle">Pin two pre-run scenarios and compare them side-by-side.</p></div><div class="button-row"><button id="pinA" class="secondary">Pin A</button><button id="pinB" class="secondary">Pin B</button></div></div>
-              <div id="compareEmpty" class="empty-state">One real scenario is loaded now. Add more pre-run configurations to compare strategies.</div>
-              <div id="compareContent" class="compare-grid hidden"></div>
-            </article>
-          </section>
-        </section>
-      </main>
-      <footer>Precomputed historical simulation cube · Browser lookup only · APSIM is not run from this screen</footer>
-    </div>
-  </div>
-  <script src="app.js"></script>
-</body>
-</html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLOVER Irrigation Scenario Explorer</title>
+<style>
+:root{--ink:#183532;--muted:#637876;--line:#d6dfde;--bg:#eef2f2;--teal:#167c72;--teal2:#0e655e;--nav:#123e3a;--blue:#397aa8;--orange:#dc8b3c}*{box-sizing:border-box}body{margin:0;font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}button,select,input{font:inherit}.shell{display:grid;grid-template-columns:82px 292px minmax(0,1fr);grid-template-rows:86px minmax(calc(100vh - 86px),auto);min-height:100vh}.rail{grid-row:1/3;background:var(--nav);color:white;padding:14px 8px;position:sticky;top:0;height:100vh}.brand{text-align:center;font-weight:800;font-size:10px;letter-spacing:.08em;margin-bottom:34px}.mark{font-size:28px;display:block}.navitem{padding:12px 5px;margin:8px 0;border-radius:6px;text-align:center;color:#aac0bd;font-size:10px}.navitem .ico{font-size:22px;display:block;margin-bottom:4px}.navitem.active{background:#28534f;color:#fff}.top{grid-column:2/4;background:white;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;padding:14px 28px;position:sticky;top:0;z-index:3}.crumb{font-size:12px;color:var(--muted);margin-bottom:3px}.top h1{font-size:23px;margin:0}.status{padding:8px 12px;border:1px solid #c6ded9;background:#edf7f5;border-radius:4px;color:var(--teal2);font-weight:700;font-size:12px}.status:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b9b62;margin-right:8px}.sidebar{grid-column:2;background:#f8faf9;border-right:1px solid var(--line);padding:22px 20px;position:sticky;top:86px;height:calc(100vh - 86px);overflow:auto}.kicker{font-size:10px;color:var(--teal);font-weight:800;letter-spacing:.08em}.sidehead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sidehead h2{font-size:18px;margin:2px 0}.reset{border:0;background:none;color:var(--teal);font-weight:700;cursor:pointer}.group{font-size:10px;font-weight:800;color:#546a68;margin:18px 0 8px;padding-top:13px;border-top:1px solid var(--line)}.group.first{border-top:0;padding-top:0}.forecast-group{border-left:3px solid var(--blue);padding-left:12px}label{display:block;font-size:11px;color:var(--muted);font-weight:700;margin:10px 0 4px}select,input{width:100%;border:1px solid #c8d4d2;border-radius:4px;padding:9px 10px;background:#fff;color:var(--ink)}.apply{width:100%;border:0;border-radius:4px;background:var(--teal);color:white;font-weight:800;padding:11px;margin-top:16px;cursor:pointer}.hint{font-size:11px;color:var(--muted);margin:9px 0}details{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}summary{font-weight:800;cursor:pointer;color:#4e6663}.main{grid-column:3;padding:20px 24px 36px;min-width:0}.result-head{background:white;border:1px solid var(--line);border-left:5px solid var(--teal);padding:18px 20px;display:flex;justify-content:space-between;gap:20px;align-items:center}.result-head h2{margin:3px 0 5px;font-size:21px}.result-head p{margin:0;color:var(--muted)}.pill{background:#e7f3f1;border:1px solid #cee2de;color:var(--teal2);font-size:16px;font-weight:800;padding:12px 18px;border-radius:4px;white-space:nowrap}.metrics{display:grid;grid-template-columns:repeat(6,1fr);background:white;border-left:1px solid var(--line)}.metric{padding:13px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.metric span{display:block;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.05em}.metric b{display:block;font-size:19px;margin:5px 0 1px}.metric small{color:var(--muted);font-size:10px}.tabs{display:flex;margin-top:16px;border-bottom:1px solid #c8d2d1;overflow:auto}.tab{border:1px solid #c8d2d1;border-bottom:0;background:#e8eded;padding:10px 16px;font-weight:700;color:#607472;cursor:pointer;white-space:nowrap}.tab.active{background:white;color:var(--teal2);box-shadow:inset 0 3px 0 var(--teal)}.tabpane{display:none}.tabpane.active{display:block}.grid2{display:grid;grid-template-columns:minmax(0,2fr) minmax(290px,1fr);gap:12px;margin-top:12px}.panel{background:white;border:1px solid var(--line);padding:16px}.panel h3{font-size:16px;margin:2px 0 12px}.pk{font-size:9px;color:var(--teal);font-weight:800;letter-spacing:.08em}.callout{background:#f3f8f7;border-left:3px solid var(--teal);padding:12px;margin-bottom:15px}.callout b{color:var(--teal2)}.note{color:var(--muted);font-size:12px}.bars{height:280px;display:flex;align-items:flex-end;justify-content:space-around;padding:38px 50px 36px;border-top:1px solid #edf1f0}.groupbar{height:100%;display:flex;gap:10px;align-items:flex-end}.bar{width:54px;border-radius:2px 2px 0 0;position:relative}.bar.base{background:var(--blue)}.bar.fc{background:var(--teal)}.bar em{position:absolute;top:-24px;width:100%;text-align:center;font-style:normal;font-size:11px;font-weight:800}.legend{display:flex;gap:18px;font-size:11px;color:var(--muted)}.dot{display:inline-block;width:10px;height:10px;margin-right:5px}.dot.base{background:var(--blue)}.dot.fc{background:var(--teal)}table{border-collapse:collapse;width:100%;font-size:12px}th,td{padding:10px;border-bottom:1px solid #e3e9e8;text-align:right}th:first-child,td:first-child{text-align:left}th{font-size:9px;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}.decision-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.decision{border:1px solid var(--line);border-left:4px solid var(--orange);padding:12px;background:white}.decision h4{margin:0 0 6px;font-size:13px}.decision p{margin:4px 0;color:var(--muted);font-size:11px}.timeline{margin-top:12px;height:330px;background:white;border:1px solid var(--line);padding:16px}.timeline svg{width:100%;height:270px}.econ{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.econ .box{background:#f4f8f7;padding:14px;border:1px solid #e0e8e6}.econ span{display:block;color:var(--muted);font-size:10px}.econ b{font-size:19px}.empty{padding:42px;text-align:center;color:var(--muted);border:1px dashed #bcccca;background:#fbfdfd;margin-top:12px}@media(max-width:1100px){.shell{grid-template-columns:70px 250px minmax(0,1fr)}.metrics{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:760px){.shell{display:block}.rail{display:none}.top{position:static}.sidebar{position:static;height:auto}.main{padding:12px}.metrics{grid-template-columns:repeat(2,1fr)}.decision-grid,.econ{grid-template-columns:1fr}.result-head{align-items:flex-start;flex-direction:column}}
+</style>
+</head><body><div class="shell">
+<aside class="rail"><div class="brand"><span class="mark">☘</span>CLOVER</div><div class="navitem active"><span class="ico">▦</span>Explorer</div><div class="navitem"><span class="ico">◫</span>Sites</div><div class="navitem"><span class="ico">≋</span>Data</div></aside>
+<header class="top"><div><div class="crumb">CLOVER / Historical forecast evaluation</div><h1>Irrigation scenario explorer</h1></div><div class="status">Historical simulation cube</div></header>
+<aside class="sidebar"><div class="sidehead"><div><div class="kicker">SCENARIO</div><h2>Simulation inputs</h2></div><button class="reset" onclick="resetAll()">Reset</button></div><div class="group first">FARM CONTEXT</div><label>Location</label><select><option>Walkamin</option></select><label>Soil</label><select><option>Walkamin reference soil</option></select><label>Crop / stage</label><select><option>Sugarcane – plant crop</option></select><label>Historical period</label><select><option>2008–09</option></select><div class="group">IRRIGATION RULE</div><label>Irrigation application</label><select><option>50 mm</option></select><div class="group forecast-group">FORECAST DECISION RULE</div><div class="forecast-group"><label>Forecast horizon</label><select><option>3 days</option></select><label>Rainfall threshold</label><select><option>20 mm</option></select><label>Forecast confidence</label><select><option>60%</option></select></div><button class="apply" onclick="flashApplied()">Apply scenario</button><div id="hint" class="hint">Scenario is available in the cube.</div><details><summary>Farm economics</summary><label>Farm area (ha)</label><input id="area" type="number" value="40"><label>Pump flow (L/s)</label><input id="flow" type="number" value="60"><label>Pump power (kW)</label><input id="power" type="number" value="10"><label>Energy price ($/kWh)</label><input id="ep" type="number" value="0.30" step="0.01"><label>Water price ($/ML)</label><input id="wp" type="number" value="20.35" step="0.01"></details></aside>
+<main class="main"><section class="result-head"><div><div class="kicker">ACTIVE RESULT</div><h2>Walkamin: 3-day forecast strategy</h2><p>Delay irrigation when P(≥20 mm rain in the next 3 days) reaches 60%.</p></div><div class="pill">3 forecast hold days</div></section><section class="metrics"><div class="metric"><span>WATER SAVED</span><b>0 mm</b><small>0.0% less</small></div><div class="metric"><span>FARM WATER</span><b id="ml">0.0 ML</b><small>based on farm area</small></div><div class="metric"><span>FORECAST HOLDS</span><b>3</b><small>days delayed</small></div><div class="metric"><span>PUMP TIME</span><b id="hours">0 h</b><small>saved</small></div><div class="metric"><span>OPERATING</span><b id="saving">$0</b><small>water + energy</small></div><div class="metric"><span>CANE OUTCOME</span><b>-0.1%</b><small>forecast vs baseline</small></div></section>
+<nav class="tabs"><button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="historical">Historical seasons</button><button class="tab" data-tab="timeline">Season timeline</button><button class="tab" data-tab="economics">Farm economics</button><button class="tab" data-tab="compare">Compare strategies</button></nav>
+<section id="overview" class="tabpane active"><div class="grid2"><article class="panel"><div class="pk">RESULT</div><h3>Baseline vs forecast-informed</h3><div class="legend"><span><i class="dot base"></i>Baseline</span><span><i class="dot fc"></i>Forecast-informed</span></div><div class="bars"><div class="groupbar"><div class="bar base" style="height:78%"><em>400 mm</em></div><div class="bar fc" style="height:78%"><em>400 mm</em></div></div><div class="groupbar"><div class="bar base" style="height:65%"><em>75.2</em></div><div class="bar fc" style="height:64.9%"><em>75.1</em></div></div></div></article><article class="panel"><div class="pk">INTERPRETATION</div><h3>What changed?</h3><div class="callout"><b>3 forecast hold days</b><br><span class="note">in the 2008–09 test season.</span></div><p><b>Both strategies still applied 400 mm in total.</b></p><p class="note">The forecast changed irrigation timing, but it did not remove an irrigation event in this season.</p><table><tr><td>Cane outcome</td><td><b>-0.12%</b></td></tr><tr><td>Sucrose outcome</td><td><b>+0.07%</b></td></tr></table></article></div><article class="panel" style="margin-top:12px"><div class="pk">DETAIL</div><h3>Water balance and crop response</h3><table><thead><tr><th>Measure</th><th>Baseline</th><th>Forecast</th><th>Difference</th></tr></thead><tbody><tr><td>Irrigation</td><td>400 mm</td><td>400 mm</td><td>0 mm</td></tr><tr><td>Irrigation events</td><td>8</td><td>8</td><td>0 avoided</td></tr><tr><td>Forecast hold days</td><td>—</td><td>3</td><td>timing changed</td></tr><tr><td>Cane outcome</td><td>75.23 t/ha</td><td>75.14 t/ha</td><td>-0.12%</td></tr><tr><td>Sucrose outcome</td><td>32.67 t/ha</td><td>32.69 t/ha</td><td>+0.07%</td></tr></tbody></table></article></section>
+<section id="historical" class="tabpane"><article class="panel" style="margin-top:12px"><div class="pk">HISTORICAL CUBE</div><h3>Available seasons</h3><table><thead><tr><th>Season</th><th>Baseline irrigation</th><th>Forecast irrigation</th><th>Forecast holds</th><th>Water saved</th><th>Cane outcome</th></tr></thead><tbody><tr><td>2008–09</td><td>400 mm</td><td>400 mm</td><td>3 days</td><td>0 mm</td><td>-0.12%</td></tr></tbody></table><p class="note">The cube currently contains the completed 2008–09 Walkamin comparison.</p></article></section>
+<section id="timeline" class="tabpane"><div class="timeline"><div class="pk">SEASON TIMELINE</div><h3>Rainfall, crop stress and irrigation decisions</h3><svg viewBox="0 0 1000 230"><line x1="50" y1="190" x2="970" y2="190" stroke="#aebdbc"/><polyline points="70,112 145,92 220,130 295,76 370,105 445,58 520,80 595,122 670,91 745,118 820,70 895,99" fill="none" stroke="#167c72" stroke-width="3"/><g fill="#9bc4df"><rect x="60" y="140" width="35" height="50"/><rect x="135" y="120" width="35" height="70"/><rect x="210" y="165" width="35" height="25"/><rect x="285" y="90" width="35" height="100"/><rect x="360" y="135" width="35" height="55"/><rect x="435" y="55" width="35" height="135"/><rect x="510" y="85" width="35" height="105"/><rect x="585" y="150" width="35" height="40"/><rect x="660" y="110" width="35" height="80"/><rect x="735" y="148" width="35" height="42"/><rect x="810" y="80" width="35" height="110"/><rect x="885" y="125" width="35" height="65"/></g><g stroke-width="4"><line x1="400" y1="170" x2="400" y2="190" stroke="#397aa8"/><line x1="422" y1="150" x2="422" y2="190" stroke="#167c72"/><line x1="455" y1="170" x2="455" y2="190" stroke="#397aa8"/><line x1="500" y1="150" x2="500" y2="190" stroke="#167c72"/></g><text x="55" y="215" font-size="10" fill="#637876">Apr 08</text><text x="285" y="215" font-size="10" fill="#637876">Jul</text><text x="510" y="215" font-size="10" fill="#637876">Oct</text><text x="735" y="215" font-size="10" fill="#637876">Jan 09</text><text x="890" y="215" font-size="10" fill="#637876">Apr</text></svg></div><div class="decision-grid"><div class="decision"><h4>18 Nov 2008</h4><p><b>Forecast said wait:</b> 80% chance of ≥20 mm.</p><p>Forecast mean: <b>48.7 mm</b></p><p>Observed next 72 h: <b>41.15 mm</b></p></div><div class="decision"><h4>7 Dec 2008</h4><p><b>Forecast said wait:</b> 80% chance of ≥20 mm.</p><p>Forecast mean: <b>26.7 mm</b></p><p>Observed next 72 h: <b>8.44 mm</b></p></div><div class="decision"><h4>8 Dec 2008</h4><p><b>Forecast said wait:</b> 60% chance of ≥20 mm.</p><p>Forecast mean: <b>23.9 mm</b></p><p>Observed next 72 h: <b>13.39 mm</b></p></div></div></section>
+<section id="economics" class="tabpane"><article class="panel" style="margin-top:12px"><div class="pk">FARM ECONOMICS</div><h3>Translate simulation water savings to farm scale</h3><div class="econ"><div class="box"><span>Water saved</span><b id="e_ml">0.0 ML</b></div><div class="box"><span>Pump hours saved</span><b id="e_hours">0 h</b></div><div class="box"><span>Energy saved</span><b id="e_kwh">0 kWh</b></div><div class="box"><span>Operating saving</span><b id="e_money">$0</b></div></div><p class="note" style="margin-top:16px">For this 2008–09 scenario, the forecast changed timing but did not reduce total irrigation, so the calculated farm-scale saving is zero.</p></article></section><section id="compare" class="tabpane"><div class="empty">Only one real pre-run forecast configuration is loaded. More configurations can be added to compare strategies.</div></section></main></div>
+<script>
+document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.tab).classList.add('active')}));function flashApplied(){const h=document.getElementById('hint');h.textContent='Scenario applied — using embedded real 2008–09 simulation data.';setTimeout(()=>h.textContent='Scenario is available in the cube.',1800)}function resetAll(){['area','flow','power','ep','wp'].forEach((id,i)=>document.getElementById(id).value=[40,60,10,.30,20.35][i]);calc()}function calc(){const area=+document.getElementById('area').value||0,flow=+document.getElementById('flow').value||0,power=+document.getElementById('power').value||0,ep=+document.getElementById('ep').value||0,wp=+document.getElementById('wp').value||0,saved=0,ml=saved*area*.01,hours=flow?ml*1e6/(flow*3600):0,kwh=hours*power,money=kwh*ep+ml*wp;document.getElementById('ml').textContent=ml.toFixed(1)+' ML';document.getElementById('hours').textContent=Math.round(hours)+' h';document.getElementById('saving').textContent='$'+Math.round(money);document.getElementById('e_ml').textContent=ml.toFixed(1)+' ML';document.getElementById('e_hours').textContent=Math.round(hours)+' h';document.getElementById('e_kwh').textContent=Math.round(kwh)+' kWh';document.getElementById('e_money').textContent='$'+Math.round(money)}['area','flow','power','ep','wp'].forEach(id=>document.getElementById(id).addEventListener('input',calc));calc();
+</script></body></html>
