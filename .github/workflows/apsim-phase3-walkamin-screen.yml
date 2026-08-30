@@ -1,0 +1,62 @@
+name: APSIM Phase 3 Walkamin season screen
+
+on:
+  push:
+    branches: [clover-phase3-walkamin, clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  screen-walkamin-seasons:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install analysis tools
+        run: pip install pandas numpy
+
+      - name: Prepare Walkamin weather and Tablelands soil proxy
+        run: |
+          mkdir -p phase3/walkamin
+          curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
+          python phase3/prepare_walkamin_screen.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run ten Walkamin plant-crop baselines
+        run: |
+          for f in phase3/walkamin/Walkamin_*_baseline.apsimx; do
+            echo "Running $f"
+            docker run --rm -v "$PWD/phase3/walkamin:/test-run" apsiminitiative/apsimng:latest "/test-run/$(basename "$f")" --csv --verbose
+          done
+
+      - name: Screen seasons and select best demonstration year
+        run: python phase3/screen_walkamin_seasons.py
+
+      - name: Preview screen results
+        run: |
+          cat phase3/walkamin/walkamin_season_screen_summary.csv
+          echo
+          cat phase3/walkamin/walkamin_selected_season.json
+          echo
+          cat phase3/walkamin/walkamin_selected_baseline_events.csv
+
+      - name: Upload Walkamin screen outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-walkamin-screen
+          path: |
+            phase3/walkamin/*.csv
+            phase3/walkamin/*.json
+            phase3/walkamin/*.apsimx
+            phase3/walkamin/*.met
+          if-no-files-found: error

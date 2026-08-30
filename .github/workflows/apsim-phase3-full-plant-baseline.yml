@@ -1,0 +1,103 @@
+name: APSIM Phase 3 full plant-crop baseline
+
+on:
+  push:
+    branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  full-plant-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install analysis tools
+        run: python -m pip install pandas numpy
+
+      - name: Download APSIM example and full-season weather
+        run: |
+          mkdir -p phase3/run
+          curl -L --fail -o phase3/run/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/run/nasa_power_ingam_2000_2001.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=146.18&latitude=-18.65&start=20000401&end=20010630&format=JSON'
+          python phase3/prepare_full_plant_baseline.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run full plant-crop baseline
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_full_plant_baseline.apsimx --csv --verbose
+
+      - name: Summarise irrigation pattern
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          from pathlib import Path
+
+          p = Path('phase3/run/Sugarcane_full_plant_baseline.Report.csv')
+          df = pd.read_csv(p)
+          df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
+          events = df[df['AppliedToday'] > 0].copy()
+          events['interval_days'] = events['Clock.Today'].diff().dt.days
+          events['month'] = events['Clock.Today'].dt.to_period('M').astype(str)
+
+          cols = ['Clock.Today','AppliedToday','interval_days','RootDepthUsed','RootPAWC','RootDeficit','Sugarcane.swdef_photo']
+          cols = [c for c in cols if c in events.columns]
+          events[cols].to_csv('phase3/run/full_plant_irrigation_events.csv', index=False)
+
+          monthly = events.groupby('month').agg(
+              irrigation_events=('AppliedToday','size'),
+              irrigation_mm=('AppliedToday','sum'),
+              mean_event_mm=('AppliedToday','mean'),
+          ).reset_index()
+          monthly.to_csv('phase3/run/full_plant_irrigation_monthly.csv', index=False)
+
+          dryoff = df[df['Clock.Today'] >= '2001-05-14']
+          summary = pd.DataFrame([{
+              'planting_date': '2000-04-01',
+              'preharvest_end': '2001-06-24',
+              'irrigation_events': len(events),
+              'total_irrigation_mm': events['AppliedToday'].sum(),
+              'mean_event_mm': events['AppliedToday'].mean() if len(events) else 0,
+              'median_event_mm': events['AppliedToday'].median() if len(events) else 0,
+              'median_interval_days': events['interval_days'].dropna().median() if len(events) > 1 else None,
+              'minimum_interval_days': events['interval_days'].dropna().min() if len(events) > 1 else None,
+              'last_irrigation_date': events['Clock.Today'].max().date().isoformat() if len(events) else None,
+              'irrigation_during_dryoff_mm': dryoff['AppliedToday'].sum(),
+              'min_swdef_photo_full_crop': df['Sugarcane.swdef_photo'].min(),
+              'stress_days_swdef_lt_0_9': (df['Sugarcane.swdef_photo'] < 0.9).sum(),
+              'stress_days_swdef_lt_0_7': (df['Sugarcane.swdef_photo'] < 0.7).sum(),
+          }])
+          summary.to_csv('phase3/run/full_plant_baseline_summary.csv', index=False)
+
+          print('\n=== Full plant-crop baseline ===')
+          print(summary.to_string(index=False))
+          print('\nIrrigation events:')
+          print(events[cols].to_string(index=False))
+          print('\nMonthly irrigation:')
+          print(monthly.to_string(index=False))
+          PY
+
+      - name: Upload full plant-crop baseline outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-full-plant-baseline
+          path: |
+            phase3/run/Sugarcane_full_plant_baseline.Report.csv
+            phase3/run/Sugarcane_full_plant_baseline.apsimx
+            phase3/run/Ingham_full_plant.met
+            phase3/run/full_plant_baseline_metadata.json
+            phase3/run/full_plant_baseline_summary.csv
+            phase3/run/full_plant_irrigation_events.csv
+            phase3/run/full_plant_irrigation_monthly.csv
+          if-no-files-found: error

@@ -1,0 +1,74 @@
+name: APSIM Phase 3 Walkamin consequence forecast
+
+on:
+  push:
+    branches: [clover-phase3-plant-season]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  consequence-forecast:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Prepare Walkamin Tablelands model and weather
+        run: |
+          mkdir -p phase3/walkamin
+          curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
+          python phase3/prepare_walkamin_screen.py
+          python phase3/add_walkamin_water_balance_outputs.py
+
+      - name: Correct final-day lookahead state check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('phase3/run_walkamin_consequence_experiment.py')
+          t = p.read_text()
+          old = """    period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] < issue + pd.Timedelta(days=horizon))].copy()\n    if period.empty:\n        raise RuntimeError(f'Empty look-ahead period {issue} {horizon}')\n    sw = pd.to_numeric(period['Sugarcane.swdef_photo'], errors='coerce').dropna()\n    min_sw = float(sw.min()) if not sw.empty else 1.0\n    trigger = period['RootDeficit'] >= DEPLETION_FRACTION * period['RootPAWC']\n    # A forecast can substitute for irrigation when the trigger is relieved after\n    # the decision date without irrigation, while crop stress remains acceptable.\n    later = period[period['Clock.Today'] > issue]\n    relieved = bool(((later['RootDeficit'] < DEPLETION_FRACTION * later['RootPAWC'])).any()) if not later.empty else False\n    end = period.iloc[-1]\n"""
+          new = """    # Crop stress is assessed over the forecast days themselves. Root-zone state is\n    # also inspected on the following morning so rainfall on the final forecast day\n    # has a chance to appear in the StartOfDay soil-water state.\n    period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] < issue + pd.Timedelta(days=horizon))].copy()\n    state_period = df[(df['Clock.Today'] >= issue) & (df['Clock.Today'] <= issue + pd.Timedelta(days=horizon))].copy()\n    if period.empty:\n        raise RuntimeError(f'Empty look-ahead period {issue} {horizon}')\n    sw = pd.to_numeric(period['Sugarcane.swdef_photo'], errors='coerce').dropna()\n    min_sw = float(sw.min()) if not sw.empty else 1.0\n    # A forecast can substitute for irrigation when the trigger is relieved after\n    # the decision date without irrigation, while crop stress remains acceptable.\n    later = state_period[state_period['Clock.Today'] > issue]\n    relieved = bool(((later['RootDeficit'] < DEPLETION_FRACTION * later['RootPAWC'])).any()) if not later.empty else False\n    end = state_period.iloc[-1]\n"""
+          if old not in t:
+              raise SystemExit('Expected lookahead block not found')
+          p.write_text(t.replace(old, new))
+          PY
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run consequence-based 3-day and 7-day experiment
+        run: python phase3/run_walkamin_consequence_experiment.py
+
+      - name: Preview strategy summary
+        run: |
+          echo '=== Strategy summary ==='
+          cat phase3/walkamin/walkamin_consequence_strategy_summary.csv
+          echo
+          echo '=== Method ==='
+          cat phase3/walkamin/walkamin_consequence_method.json
+
+      - name: Upload consequence experiment outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-phase3-walkamin-consequence
+          path: |
+            phase3/walkamin/walkamin_consequence_*.csv
+            phase3/walkamin/walkamin_consequence_*.json
+            phase3/walkamin/consequence_*_decisions.csv
+            phase3/walkamin/consequence_*_member_lookahead.csv
+            phase3/walkamin/consequence_*_daily.csv
+          if-no-files-found: error
