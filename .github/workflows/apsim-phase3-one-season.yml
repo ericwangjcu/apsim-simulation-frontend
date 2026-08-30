@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  baseline:
+  one-season-comparison:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -21,8 +21,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install analysis tools
-        run: python -m pip install pandas
+      - name: Install forecast and analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
 
       - name: Prepare official APSIM sugarcane example
         run: |
@@ -31,12 +35,14 @@ jobs:
           curl -L --fail -o phase3/run/AU_Ingham.met https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/WeatherFiles/AU_Ingham.met
           python phase3/prepare_baseline.py
 
-      - name: Run automatic-irrigation baseline
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run no-forecast irrigation baseline
         run: |
-          docker pull apsiminitiative/apsimng:latest
           docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_phase3_baseline.apsimx --csv --verbose
 
-      - name: Identify 2000 irrigation decisions
+      - name: Identify baseline irrigation decision dates
         run: |
           python - <<'PY'
           import pandas as pd
@@ -44,24 +50,49 @@ jobs:
           p = Path('phase3/run/Sugarcane_phase3_baseline.Report.csv')
           df = pd.read_csv(p)
           df['Clock.Today'] = pd.to_datetime(df['Clock.Today'])
-          s = df[(df['Clock.Today'] >= '2000-07-01') & (df['Clock.Today'] <= '2000-09-30')].copy()
+          s = df[(df['Clock.Today'] >= '2000-07-01') & (df['Clock.Today'] <= '2000-09-07')].copy()
           events = s[s['AppliedToday'] > 0].copy()
           cols = ['Clock.Today', 'AppliedToday', 'TopSWC', 'TopSWdeficit',
                   'Sugarcane.swdef_photo', 'Sugarcane.biomass', 'Sugarcane.cane_wt', 'Sugarcane.sucrose_wt']
           cols = [c for c in cols if c in events.columns]
           events[cols].to_csv('phase3/run/baseline_irrigation_events.csv', index=False)
-          print('Baseline irrigation events:', len(events))
-          print(events[cols].to_string(index=False) if len(events) else 'No irrigation events')
-          print('Total irrigation:', events['AppliedToday'].sum())
-          print('Minimum swdef_photo during season:', s['Sugarcane.swdef_photo'].min())
+          print('Baseline events:', len(events))
+          print(events[cols].to_string(index=False))
+          print('Total baseline irrigation:', events['AppliedToday'].sum())
           PY
 
-      - name: Upload baseline results
+      - name: Retrieve historical GEFS forecasts for one season
+        run: python phase3/fetch_season_gefs.py
+
+      - name: Build forecast-aware and perfect-information scenarios
+        run: python phase3/build_decision_scenarios.py
+
+      - name: Run forecast-aware irrigation strategy
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_phase3_forecast.apsimx --csv --verbose
+
+      - name: Run perfect-information irrigation benchmark
+        run: |
+          docker run --rm -v "$PWD/phase3/run:/test-run" apsiminitiative/apsimng:latest /test-run/Sugarcane_phase3_perfect.apsimx --csv --verbose
+
+      - name: Analyse one-season results
+        run: python phase3/analyse_one_season.py
+
+      - name: Preview summary
+        run: |
+          echo '--- strategy summary ---'
+          cat phase3/run/phase3_one_season_summary.csv
+          echo
+          echo '--- forecast-aware decisions ---'
+          cat phase3/run/forecast_aware_decision_days.csv
+
+      - name: Upload complete Phase 3 outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clover-phase3-baseline
+          name: clover-phase3-one-season
           path: |
-            phase3/run/Sugarcane_phase3_baseline.Report.csv
-            phase3/run/Sugarcane_phase3_baseline.apsimx
-            phase3/run/baseline_irrigation_events.csv
+            phase3/run/*.csv
+            phase3/run/*.json
+            phase3/run/*.apsimx
           if-no-files-found: error
