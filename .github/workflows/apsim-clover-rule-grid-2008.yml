@@ -1,0 +1,63 @@
+name: CLOVER Walkamin 2008 forecast rule grid
+
+on:
+  push:
+    branches: [clover-rule-grid-2008]
+    paths:
+      - 'phase3/run_walkamin_simple_rule_grid.py'
+      - '.github/workflows/apsim-clover-rule-grid-2008.yml'
+  workflow_dispatch:
+
+jobs:
+  walkamin-rule-grid:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install forecast tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+          python -m pip install --upgrade pip
+          pip install 'herbie-data>=2025.3.0' pandas numpy xarray cfgrib eccodes s3fs
+
+      - name: Prepare Walkamin 2008-09 APSIM baseline
+        run: |
+          mkdir -p phase3/walkamin
+          curl -L --fail -o phase3/walkamin/Sugarcane.apsimx https://raw.githubusercontent.com/APSIMInitiative/ApsimX/master/Examples/Sugarcane.apsimx
+          curl -L --fail -o phase3/walkamin/nasa_power_walkamin_2000_2010.json 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,T2M_MAX,T2M_MIN,PRECTOTCORR&community=AG&longitude=145.43&latitude=-17.13&start=20000401&end=20110630&format=JSON'
+          python phase3/prepare_walkamin_screen.py
+          python phase3/add_walkamin_water_balance_outputs.py
+
+      - name: Pull APSIM Docker image
+        run: docker pull apsiminitiative/apsimng:latest
+
+      - name: Run 20-rule forecast grid
+        run: python phase3/run_walkamin_simple_rule_grid.py
+
+      - name: Preview grid summary
+        if: always()
+        run: |
+          if [ -f phase3/walkamin/walkamin_2008_simple_rule_grid_summary.csv ]; then
+            cat phase3/walkamin/walkamin_2008_simple_rule_grid_summary.csv
+          fi
+
+      - name: Upload rule-grid outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-walkamin-2008-simple-rule-grid
+          path: |
+            phase3/walkamin/walkamin_2008_simple_rule_grid_*.csv
+            phase3/walkamin/walkamin_2008_simple_rule_grid_*.json
+            phase3/walkamin/walkamin_2008_ui_*.json
+            phase3/walkamin/simple_*_decisions.csv
+            phase3/walkamin/simple_*_daily.csv
+          if-no-files-found: warn
